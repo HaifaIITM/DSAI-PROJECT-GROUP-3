@@ -1,0 +1,17 @@
+{
+  "model": "esn",
+  "exp_id": "m4_hidden_size400_spectral_radius0.95_leak_rate1.0_ridge_alpha0",
+  "fold": 0,
+  "horizon": "target_h1",
+  "rmse": 0.009741983592895973,
+  "mae": 0.0075551959694486505,
+  "r2": -0.37321615464605506,
+  "dir_acc": 0.5396825396825397,
+  "backtest": {
+    "avg_daily_pnl": 0.000537599832540892,
+    "vol": 0.008309706941970302,
+    "sharpe": 1.027,
+    "hit_ratio": 0.54,
+    "turnover": 0.94
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "model": "tcn",
+  "exp_id": "m4_seq_len32_channels64_128_epochs15_3889c8ee",
+  "fold": 0,
+  "horizon": "target_h1",
+  "rmse": 0.010806407601797043,
+  "mae": 0.008321136311934091,
+  "r2": -0.6896891103639406,
+  "dir_acc": 0.5079365079365079,
+  "backtest": {
+    "avg_daily_pnl": 0.00028340279034560405,
+    "vol": 0.008317811880247243,
+    "sharpe": 0.541,
+    "hit_ratio": 0.508,
+    "turnover": 0.687
+  }
+}
