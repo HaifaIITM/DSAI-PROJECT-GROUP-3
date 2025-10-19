@@ -1,0 +1,17 @@
+{
+  "model": "lstm",
+  "exp_id": "m4_seq_len64_hidden256_epochs15_82a1764c",
+  "fold": 0,
+  "horizon": "target_h1",
+  "rmse": 0.008425361689345805,
+  "mae": 0.006055365200384599,
+  "r2": -0.027120088978710655,
+  "dir_acc": 0.5238095238095238,
+  "backtest": {
+    "avg_daily_pnl": 0.0004868651803200764,
+    "vol": 0.008310788745093334,
+    "sharpe": 0.93,
+    "hit_ratio": 0.524,
+    "turnover": 0.226
+  }
+}

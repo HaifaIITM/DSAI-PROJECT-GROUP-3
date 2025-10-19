@@ -1,0 +1,17 @@
+{
+  "model": "transformer",
+  "exp_id": "m4_seq_len64_d_model128_epochs15_09dfabeb",
+  "fold": 0,
+  "horizon": "target_h1",
+  "rmse": 0.0157122897911329,
+  "mae": 0.011505670782932752,
+  "r2": -2.5720956311033,
+  "dir_acc": 0.48412698412698413,
+  "backtest": {
+    "avg_daily_pnl": 0.00015624228742943595,
+    "vol": 0.008327549414677156,
+    "sharpe": 0.298,
+    "hit_ratio": 0.484,
+    "turnover": 0.345
+  }
+}
