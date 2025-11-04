@@ -5,4 +5,7 @@ scikit-learn
 matplotlib
 jupyter
 torch
-
+openai 
+langchain 
+faiss-cpu 
+python-dotenv
