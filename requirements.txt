@@ -13,3 +13,4 @@ langchain-openai
 langchain-community 
 langchain-core
 sentence-transformers
+langchain-ollama

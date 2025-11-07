@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # LangChain imports
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.chat_models import ChatOllama  
+from langchain_ollama import ChatOllama  
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.document import Document
 from langchain_core.prompts import PromptTemplate
@@ -91,6 +91,7 @@ def generate_reasoning_from_rag(ticker: str, query: str):
     context = "\n\n".join([d.page_content for d in docs])
 
     llm = ChatOllama(model="mistral")
+    print(llm.invoke("Hello"))
     prompt = PromptTemplate(
         input_variables=["context", "query"],
         template=(
