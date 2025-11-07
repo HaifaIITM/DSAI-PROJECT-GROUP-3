@@ -54,6 +54,10 @@ desktop.ini
 *.sqlite
 *.sqlite3
 
+# Include data folder files
+!data/**/*.csv
+!data/**/*.json
+
 # Logs
 *.log
 logs/
