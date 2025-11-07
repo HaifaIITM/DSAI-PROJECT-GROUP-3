@@ -185,7 +185,7 @@ All expose a uniform API: `.fit(X, y)` / `.predict(X)` and are registered in `sr
 * **M2 (Oct 10)** ✅ Data, features, walk-forward splits
 * **M3 (Oct 17)** ✅ ESN + deep baselines + viz
 * **M4 (Oct 31)** ✅ Training sweeps, aggregation, findings
-* **M5 (Nov 7)** ▶ Robust evaluation across folds/horizons; error analysis; significance tests (Diebold–Mariano)
+* **M5 (Nov 7)** ▶ Robust evaluation across folds/horizons; error analysis
 * **M6 (Nov 14)** ▶ Minimal demo/API (HF Spaces or Gradio), docs, final report
 
 ---
