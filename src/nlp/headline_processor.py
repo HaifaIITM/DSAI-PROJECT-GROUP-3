@@ -121,6 +121,23 @@ def run_pipeline(ticker="SPY", lookback_days=14):
     return daily_df, feats
 
 
+def generate_risk_index_timeseries(ticker="SPY", lookback_days=30, output_path=None):
+    """
+    Generate historical risk index and save to CSV.
+    Returns DataFrame with date index and risk columns: Risk_z, Risk_pca
+    """
+    daily_df, _ = run_pipeline(ticker, lookback_days)
+    risk_ts = daily_df[['date', 'Risk_z', 'Risk_pca']].copy()
+    risk_ts['date'] = pd.to_datetime(risk_ts['date'])
+    risk_ts = risk_ts.set_index('date').sort_index()
+    
+    if output_path:
+        risk_ts.to_csv(output_path)
+        print(f"Risk index saved to {output_path}")
+    
+    return risk_ts
+
+
 if __name__ == "__main__":
     daily_df, feats = run_pipeline("SPY", lookback_days=5)
     print(daily_df.tail())

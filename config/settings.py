@@ -36,6 +36,12 @@ USE_INTERSECTION = True # True: intersect ANCHOR_TICKER with '^GSPC' to align; F
 FEATURE_COLS = [
     "ret_1","ret_2","ret_5",
     "vol_20","ma_10","ma_20","ma_gap",
-    "rsi_14","vol_z","dow"
+    "rsi_14","vol_z","dow",
+    "risk_index"  # NLP-derived risk index
 ]
 TARGET_COLS  = ["target_h1", "target_h5", "target_h20"]
+
+# NLP settings
+NLP_ENABLED = False  # Set to True to enable NLP risk index feature
+NLP_TICKER = "SPY"   # Ticker to fetch headlines for
+NLP_LOOKBACK_DAYS = 365  # Historical lookback for NLP data

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from .loader import load_yahoo_csv
 
-def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14) -> pd.DataFrame:
+def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14, risk_df: pd.DataFrame = None) -> pd.DataFrame:
     out = df.copy()
     price_col = "Adj Close" if "Adj Close" in out.columns else "Close"
     out = out.rename(columns={price_col: "PX"})
@@ -37,6 +37,15 @@ def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14) -> pd.
     # calendar
     out["dow"] = out.index.dayofweek
 
+    # NLP risk index (if provided)
+    if risk_df is not None and not risk_df.empty:
+        # Align by date index, forward-fill missing dates
+        out = out.join(risk_df[['Risk_z']], how='left')
+        out['risk_index'] = out['Risk_z'].ffill().fillna(0)
+        out = out.drop(columns=['Risk_z'], errors='ignore')
+    else:
+        out['risk_index'] = 0.0
+
     # targets (forward)
     out["target_h1"]  = out["ret_1"].shift(-1)
     out["target_h5"]  = out["ret_1"].rolling(5).sum().shift(-5)
@@ -46,10 +55,10 @@ def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14) -> pd.
     out.insert(0, "Symbol", symbol)
     return out
 
-def process_and_save(raw_csv_path: str, symbol: str, out_dir: str) -> str:
+def process_and_save(raw_csv_path: str, symbol: str, out_dir: str, risk_df: pd.DataFrame = None) -> str:
     os.makedirs(out_dir, exist_ok=True)
     raw = load_yahoo_csv(raw_csv_path)
-    feats = compute_features(raw, symbol)
+    feats = compute_features(raw, symbol, risk_df=risk_df)
     out_path = os.path.join(out_dir, f"{symbol}_features.csv")
     feats.to_csv(out_path, index=True)
     return out_path
