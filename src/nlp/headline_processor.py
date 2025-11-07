@@ -121,19 +121,76 @@ def run_pipeline(ticker="SPY", lookback_days=14):
     return daily_df, feats
 
 
-def generate_risk_index_timeseries(ticker="SPY", lookback_days=30, output_path=None):
+def generate_risk_index_timeseries(ticker="SPY", lookback_days=30, output_path=None, use_vix_proxy=True):
     """
     Generate historical risk index and save to CSV.
+    If use_vix_proxy=True, supplements headlines with VIX-based risk for full history.
     Returns DataFrame with date index and risk columns: Risk_z, Risk_pca
     """
-    daily_df, _ = run_pipeline(ticker, lookback_days)
-    risk_ts = daily_df[['date', 'Risk_z', 'Risk_pca']].copy()
-    risk_ts['date'] = pd.to_datetime(risk_ts['date'])
-    risk_ts = risk_ts.set_index('date').sort_index()
+    try:
+        daily_df, _ = run_pipeline(ticker, lookback_days)
+        risk_ts = daily_df[['date', 'Risk_z', 'Risk_pca']].copy()
+        risk_ts['date'] = pd.to_datetime(risk_ts['date'])
+        risk_ts = risk_ts.set_index('date').sort_index()
+        
+        # Merge with VIX if enabled for fuller coverage
+        if use_vix_proxy:
+            risk_ts = _merge_with_vix_proxy(risk_ts, ticker)
+        
+        if output_path:
+            risk_ts.to_csv(output_path)
+            print(f"Risk index saved to {output_path}")
+        
+        return risk_ts
+    except Exception as e:
+        print(f"Warning: NLP pipeline failed ({e}), using VIX-only proxy")
+        if use_vix_proxy:
+            return _vix_only_proxy(ticker, lookback_days, output_path)
+        raise
+
+def _merge_with_vix_proxy(nlp_risk: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """Merge headline-based risk with VIX proxy for fuller coverage"""
+    import yfinance as yf
+    
+    try:
+        # Get VIX data
+        vix = yf.Ticker("^VIX")
+        hist = vix.history(period="5y")
+        
+        if hist.empty:
+            return nlp_risk
+        
+        # Compute VIX-based risk (z-scored)
+        hist['vix_ret'] = np.log(hist['Close']).diff()
+        hist['vix_risk'] = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+        vix_risk = hist[['vix_risk']].dropna()
+        
+        # Merge: use NLP where available, VIX elsewhere
+        merged = nlp_risk.join(vix_risk, how='outer')
+        merged['Risk_z'] = merged['Risk_z'].fillna(merged['vix_risk']).fillna(0)
+        merged['Risk_pca'] = merged['Risk_pca'].fillna(merged['vix_risk']).fillna(0)
+        
+        return merged[['Risk_z', 'Risk_pca']].dropna()
+    
+    except Exception as e:
+        print(f"Warning: VIX proxy merge failed ({e})")
+        return nlp_risk
+
+def _vix_only_proxy(ticker: str, lookback_days: int, output_path=None) -> pd.DataFrame:
+    """Fallback: use only VIX as risk proxy"""
+    import yfinance as yf
+    
+    vix = yf.Ticker("^VIX")
+    hist = vix.history(period="max")
+    
+    # Simple VIX-based risk
+    hist['Risk_z'] = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+    hist['Risk_pca'] = hist['Risk_z']
+    
+    risk_ts = hist[['Risk_z', 'Risk_pca']].dropna()
     
     if output_path:
         risk_ts.to_csv(output_path)
-        print(f"Risk index saved to {output_path}")
     
     return risk_ts
 

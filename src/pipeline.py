@@ -8,7 +8,7 @@ from config.settings import (
     TRAIN_DAYS, TEST_DAYS, STEP_DAYS,
     ANCHOR_TICKER, USE_INTERSECTION,
     FEATURE_COLS, TARGET_COLS,
-    NLP_ENABLED, NLP_TICKER, NLP_LOOKBACK_DAYS
+    NLP_ENABLED, NLP_TICKER, NLP_LOOKBACK_DAYS, NLP_USE_VIX_PROXY
 )
 
 from .utils.io import ensure_dir, save_json, read_json
@@ -42,9 +42,10 @@ def run_process() -> Dict[str, str]:
             risk_df = generate_risk_index_timeseries(
                 ticker=NLP_TICKER,
                 lookback_days=NLP_LOOKBACK_DAYS,
-                output_path=os.path.join(PROC_DIR, f"{NLP_TICKER}_risk_index.csv")
+                output_path=os.path.join(PROC_DIR, f"{NLP_TICKER}_risk_index.csv"),
+                use_vix_proxy=NLP_USE_VIX_PROXY
             )
-            print(f"Risk index generated: {len(risk_df)} days")
+            print(f"Risk index generated: {len(risk_df)} days (VIX proxy: {NLP_USE_VIX_PROXY})")
         except Exception as e:
             print(f"Warning: Could not generate NLP risk index: {e}")
             print("Continuing without NLP features...")

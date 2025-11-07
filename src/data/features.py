@@ -3,6 +3,48 @@ import numpy as np
 import pandas as pd
 from .loader import load_yahoo_csv
 
+def _compute_market_sentiment_proxy(df: pd.DataFrame) -> pd.Series:
+    """
+    Compute market-based sentiment/momentum proxy from price action.
+    Positive = bullish sentiment, Negative = bearish/risk-off
+    """
+    # Momentum signal (positive momentum = positive signal)
+    momentum_5d = df["ret_1"].rolling(5).sum()
+    momentum_20d = df["ret_1"].rolling(20).sum()
+    mom_z = (momentum_5d - momentum_5d.rolling(60).mean()) / momentum_5d.rolling(60).std()
+    
+    # Trend strength (price vs MA)
+    trend = (df["PX"] - df["ma_20"]) / df["ma_20"]
+    trend_z = (trend - trend.rolling(60).mean()) / trend.rolling(60).std()
+    
+    # Vol regime (low vol = positive, high vol = negative for risk-adjusted returns)
+    vol_current = df["ret_1"].rolling(10).std()
+    vol_baseline = df["ret_1"].rolling(60).std()
+    vol_signal = -(vol_current - vol_baseline) / vol_baseline  # Invert: low vol is good
+    vol_z = (vol_signal - vol_signal.rolling(60).mean()) / vol_signal.rolling(60).std()
+    
+    # RSI momentum (away from extremes)
+    rsi_centered = (df.get("rsi_14", 50) - 50) / 50  # Range [-1, 1]
+    rsi_z = (rsi_centered - rsi_centered.rolling(60).mean()) / rsi_centered.rolling(60).std()
+    
+    # Composite index (momentum-focused)
+    components = pd.DataFrame({
+        'mom': mom_z.fillna(0),
+        'trend': trend_z.fillna(0),
+        'vol': vol_z.fillna(0),
+        'rsi': rsi_z.fillna(0)
+    })
+    
+    # Weighted composite (emphasize momentum and trend)
+    sentiment_proxy = (
+        0.4 * components['mom'] + 
+        0.3 * components['trend'] + 
+        0.2 * components['vol'] + 
+        0.1 * components['rsi']
+    )
+    
+    return sentiment_proxy.fillna(0)
+
 def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14, risk_df: pd.DataFrame = None) -> pd.DataFrame:
     out = df.copy()
     price_col = "Adj Close" if "Adj Close" in out.columns else "Close"
@@ -37,14 +79,15 @@ def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14, risk_d
     # calendar
     out["dow"] = out.index.dayofweek
 
-    # NLP risk index (if provided)
+    # NLP risk index (market-based proxy if no real headlines)
     if risk_df is not None and not risk_df.empty:
-        # Align by date index, forward-fill missing dates
+        # Use real NLP data if available
         out = out.join(risk_df[['Risk_z']], how='left')
         out['risk_index'] = out['Risk_z'].ffill().fillna(0)
         out = out.drop(columns=['Risk_z'], errors='ignore')
     else:
-        out['risk_index'] = 0.0
+        # Market-based sentiment proxy: combines vol, gaps, and momentum
+        out['risk_index'] = _compute_market_sentiment_proxy(out)
 
     # targets (forward)
     out["target_h1"]  = out["ret_1"].shift(-1)

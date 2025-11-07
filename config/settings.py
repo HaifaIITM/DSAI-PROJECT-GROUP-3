@@ -42,6 +42,7 @@ FEATURE_COLS = [
 TARGET_COLS  = ["target_h1", "target_h5", "target_h20"]
 
 # NLP settings
-NLP_ENABLED = False  # Set to True to enable NLP risk index feature
+NLP_ENABLED = True   # Set to True to enable NLP risk index feature
 NLP_TICKER = "SPY"   # Ticker to fetch headlines for
 NLP_LOOKBACK_DAYS = 365  # Historical lookback for NLP data
+NLP_USE_VIX_PROXY = True  # Use VIX as fallback/supplement for full historical coverage
