@@ -3,6 +3,8 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
+import httpx
+from ollama._types import ResponseError
 
 # LangChain imports
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -90,8 +92,15 @@ def generate_reasoning_from_rag(ticker: str, query: str):
     docs = query_rag_store(ticker, query)
     context = "\n\n".join([d.page_content for d in docs])
 
-    llm = ChatOllama(model="mistral")
-    print(llm.invoke("Hello"))
+    try:
+        llm = ChatOllama(model="mistral")
+    except Exception as e:
+        raise ConnectionError(
+            "Failed to connect to Ollama. Make sure Ollama is running.\n"
+            "Start it with: ollama serve\n"
+            f"Original error: {str(e)}"
+        )
+    
     prompt = PromptTemplate(
         input_variables=["context", "query"],
         template=(
@@ -103,7 +112,22 @@ def generate_reasoning_from_rag(ticker: str, query: str):
         )
     )
     chain = RunnableSequence(first=prompt, last=llm)
-    answer = chain.invoke({"context": context, "query": query})
+    
+    try:
+        answer = chain.invoke({"context": context, "query": query})
+    except httpx.ConnectError as e:
+        raise ConnectionError(
+            "Failed to connect to Ollama. Make sure Ollama is running.\n"
+            "Start it with: ollama serve"
+        ) from e
+    except ResponseError as e:
+        if "not found" in str(e).lower() or "404" in str(e):
+            raise ValueError(
+                f"Model 'mistral' not found in Ollama.\n"
+                f"Install it with: ollama pull mistral\n"
+                f"Or use a different model that's already installed."
+            ) from e
+        raise
     
     return answer
 
