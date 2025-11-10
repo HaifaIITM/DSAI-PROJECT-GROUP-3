@@ -37,12 +37,13 @@ FEATURE_COLS = [
     "ret_1","ret_2","ret_5",
     "vol_20","ma_10","ma_20","ma_gap",
     "rsi_14","vol_z","dow",
-    "risk_index"  # NLP-derived risk index
+    "risk_index"  # Market sentiment proxy (momentum/trend/vol composite)
 ]
 TARGET_COLS  = ["target_h1", "target_h5", "target_h20"]
 
-# NLP settings
-NLP_ENABLED = True   # Set to True to enable NLP risk index feature
-NLP_TICKER = "SPY"   # Ticker to fetch headlines for
-NLP_LOOKBACK_DAYS = 365  # Historical lookback for NLP data
-NLP_USE_VIX_PROXY = True  # Use VIX as fallback/supplement for full historical coverage
+# Market Sentiment / Momentum Proxy settings
+SENTIMENT_ENABLED = False  # Enable market-based sentiment proxy (momentum/trend/vol composite)
+SENTIMENT_USE_HEADLINES = False  # Use real headlines via NLP (requires API keys)
+SENTIMENT_TICKER = "SPY"   # Ticker for headline fetching (if enabled)
+SENTIMENT_LOOKBACK_DAYS = 365  # Historical lookback for headline data
+SENTIMENT_USE_VIX = True  # Use VIX as additional sentiment signal

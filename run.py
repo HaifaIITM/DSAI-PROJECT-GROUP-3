@@ -1,12 +1,13 @@
 """
-ESN + NLP Risk Index Integration Pipeline
-==========================================
-Run this script to train the ESN model with NLP-derived risk index features.
+ESN + Market Sentiment Proxy Pipeline
+======================================
+Run this script to train the ESN model with market-based sentiment features.
+Sentiment is derived from momentum, trend, volatility, and RSI signals.
 
 Usage:
-    python run.py                    # Run with NLP features
-    python run.py --no-nlp           # Run baseline without NLP
-    python run.py --compare          # Compare both (with and without NLP)
+    python run.py                    # Run with market sentiment proxy
+    python run.py --no-nlp           # Run baseline without sentiment proxy
+    python run.py --compare          # Compare baseline vs sentiment proxy
 """
 
 import sys
@@ -70,18 +71,19 @@ def verify_risk_index():
 
 
 def run_with_nlp(fold_id=0, horizon="target_h1", lookback_days=30):
-    """Run pipeline with NLP risk index enabled"""
-    print_header("ESN + NLP Risk Index Pipeline")
+    """Run pipeline with market sentiment proxy enabled"""
+    print_header("ESN + Market Sentiment Proxy Pipeline")
     
-    # Enable NLP
-    settings.NLP_ENABLED = True
-    settings.NLP_TICKER = "SPY"
-    settings.NLP_LOOKBACK_DAYS = lookback_days
+    # Enable market sentiment proxy
+    settings.SENTIMENT_ENABLED = True
+    settings.SENTIMENT_USE_HEADLINES = False  # Use market-based proxy, not headlines
+    settings.SENTIMENT_TICKER = "SPY"
+    settings.SENTIMENT_LOOKBACK_DAYS = lookback_days
     
     print(f"\n[CONFIG]")
-    print(f"  NLP Enabled:       {settings.NLP_ENABLED}")
-    print(f"  Ticker:            {settings.NLP_TICKER}")
-    print(f"  Lookback Days:     {settings.NLP_LOOKBACK_DAYS}")
+    print(f"  Sentiment Proxy:   Enabled (Market-based)")
+    print(f"  Ticker:            {settings.SENTIMENT_TICKER}")
+    print(f"  Lookback Days:     {settings.SENTIMENT_LOOKBACK_DAYS}")
     print(f"  Fold ID:           {fold_id}")
     print(f"  Horizon:           {horizon}")
     
@@ -93,8 +95,8 @@ def run_with_nlp(fold_id=0, horizon="target_h1", lookback_days=30):
     except Exception as e:
         print(f"  Using existing data: {e}")
     
-    # Step 2: Process with NLP
-    print("\n[2/5] Processing features and generating NLP risk index...")
+    # Step 2: Process with market sentiment
+    print("\n[2/5] Processing features and generating market sentiment proxy...")
     proc_paths = run_process()
     print(f"  Processed: {list(proc_paths.keys())}")
     
@@ -108,34 +110,34 @@ def run_with_nlp(fold_id=0, horizon="target_h1", lookback_days=30):
     run_materialize_folds(proc_paths, folds)
     print(f"  Folds materialized")
     
-    # Verify risk index
+    # Verify sentiment index
     verify_risk_index()
     
     # Step 5: Train ESN
-    print("\n[5/5] Training ESN with NLP features...")
+    print("\n[5/5] Training ESN with sentiment features...")
     result = run_baseline(model_name="esn", fold_id=fold_id, horizon=horizon)
     print("  Training complete")
     
     # Display results
-    print_results(result, "ESN + NLP Risk Index")
+    print_results(result, "ESN + Market Sentiment")
     
     return result
 
 
 def run_baseline_only(fold_id=0, horizon="target_h1"):
-    """Run pipeline without NLP (baseline)"""
-    print_header("ESN Baseline Pipeline (No NLP)")
+    """Run pipeline without market sentiment proxy (baseline)"""
+    print_header("ESN Baseline Pipeline (No Sentiment Proxy)")
     
-    # Disable NLP
-    settings.NLP_ENABLED = False
+    # Disable sentiment proxy
+    settings.SENTIMENT_ENABLED = False
     
     print(f"\n[CONFIG]")
-    print(f"  NLP Enabled:       {settings.NLP_ENABLED}")
+    print(f"  Sentiment Proxy:   Disabled")
     print(f"  Fold ID:           {fold_id}")
     print(f"  Horizon:           {horizon}")
     
-    # Process without NLP
-    print("\n[1/4] Processing features (no NLP)...")
+    # Process without sentiment proxy
+    print("\n[1/4] Processing features (baseline only)...")
     proc_paths = run_process()
     print(f"  Processed: {list(proc_paths.keys())}")
     
@@ -152,27 +154,27 @@ def run_baseline_only(fold_id=0, horizon="target_h1"):
     print("  Training complete")
     
     # Display results
-    print_results(result, "ESN Baseline (No NLP)")
+    print_results(result, "ESN Baseline")
     
     return result
 
 
 def compare_models(fold_id=0, horizon="target_h1", lookback_days=30):
-    """Run both baseline and NLP versions and compare"""
-    print_header("Comparison: ESN Baseline vs ESN + NLP")
+    """Run both baseline and sentiment proxy versions and compare"""
+    print_header("Comparison: ESN Baseline vs ESN + Market Sentiment")
     
     # Run baseline
     result_baseline = run_baseline_only(fold_id, horizon)
     
-    # Run with NLP
-    result_nlp = run_with_nlp(fold_id, horizon, lookback_days)
+    # Run with sentiment proxy
+    result_sentiment = run_with_nlp(fold_id, horizon, lookback_days)
     
     # Comparison table
     print_header("Comparison Results")
     
     comparison = pd.DataFrame([
         {
-            "Model": "ESN (baseline)",
+            "Model": "ESN Baseline",
             "Features": 10,
             "RMSE": result_baseline['rmse'],
             "MAE": result_baseline['mae'],
@@ -182,14 +184,14 @@ def compare_models(fold_id=0, horizon="target_h1", lookback_days=30):
             "Hit Ratio": result_baseline['backtest']['hit_ratio']
         },
         {
-            "Model": "ESN + NLP",
+            "Model": "ESN + Sentiment",
             "Features": 11,
-            "RMSE": result_nlp['rmse'],
-            "MAE": result_nlp['mae'],
-            "R²": result_nlp['r2'],
-            "Dir.Acc": result_nlp['dir_acc'],
-            "Sharpe": result_nlp['backtest']['sharpe'],
-            "Hit Ratio": result_nlp['backtest']['hit_ratio']
+            "RMSE": result_sentiment['rmse'],
+            "MAE": result_sentiment['mae'],
+            "R²": result_sentiment['r2'],
+            "Dir.Acc": result_sentiment['dir_acc'],
+            "Sharpe": result_sentiment['backtest']['sharpe'],
+            "Hit Ratio": result_sentiment['backtest']['hit_ratio']
         }
     ])
     
@@ -197,32 +199,32 @@ def compare_models(fold_id=0, horizon="target_h1", lookback_days=30):
     
     # Calculate improvements
     print("\n[IMPROVEMENT METRICS]")
-    sharpe_diff = result_nlp['backtest']['sharpe'] - result_baseline['backtest']['sharpe']
-    dir_acc_diff = result_nlp['dir_acc'] - result_baseline['dir_acc']
-    rmse_diff = result_nlp['rmse'] - result_baseline['rmse']
+    sharpe_diff = result_sentiment['backtest']['sharpe'] - result_baseline['backtest']['sharpe']
+    dir_acc_diff = result_sentiment['dir_acc'] - result_baseline['dir_acc']
+    rmse_diff = result_sentiment['rmse'] - result_baseline['rmse']
     
     print(f"  Sharpe Ratio:      {sharpe_diff:+.3f} ({sharpe_diff/abs(result_baseline['backtest']['sharpe'])*100:+.1f}%)")
     print(f"  Dir. Accuracy:     {dir_acc_diff:+.1%}")
     print(f"  RMSE:              {rmse_diff:+.6f} ({'better' if rmse_diff < 0 else 'worse'})")
     print("=" * 70)
     
-    return result_baseline, result_nlp
+    return result_baseline, result_sentiment
 
 
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Run ESN model with optional NLP risk index integration"
+        description="Run ESN model with optional market sentiment proxy feature"
     )
     parser.add_argument(
         "--no-nlp", 
         action="store_true",
-        help="Run baseline without NLP features"
+        help="Run baseline without sentiment proxy (legacy flag, same as baseline)"
     )
     parser.add_argument(
         "--compare", 
         action="store_true",
-        help="Compare baseline vs NLP versions"
+        help="Compare baseline vs sentiment proxy versions"
     )
     parser.add_argument(
         "--fold", 
@@ -241,7 +243,7 @@ def main():
         "--lookback", 
         type=int, 
         default=30,
-        help="NLP lookback days (default: 30)"
+        help="Sentiment lookback window in days (default: 30)"
     )
     
     args = parser.parse_args()
