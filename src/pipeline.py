@@ -31,11 +31,15 @@ def _find_latest_raw(prefix: str) -> str:
 
 def run_process() -> Dict[str, str]:
     ensure_dir(PROC_DIR)
+    # Check if headlines CSV exists in project root
+    from config.settings import HEADLINES_CSV
+    headlines_path = HEADLINES_CSV if os.path.exists(HEADLINES_CSV) else None
+    
     # Always generate GSPC & ANCHOR_TICKER features so we can intersect if needed
     gspc_raw = _find_latest_raw("GSPC")
     anchor_raw = _find_latest_raw(ANCHOR_TICKER)
-    gspc_out = process_and_save(gspc_raw, "GSPC", PROC_DIR)
-    anchor_out = process_and_save(anchor_raw, ANCHOR_TICKER, PROC_DIR)
+    gspc_out = process_and_save(gspc_raw, "GSPC", PROC_DIR, headlines_csv=headlines_path)
+    anchor_out = process_and_save(anchor_raw, ANCHOR_TICKER, PROC_DIR, headlines_csv=headlines_path)
     return {"GSPC": gspc_out, ANCHOR_TICKER: anchor_out}
 
 def _read_proc(path: str) -> pd.DataFrame:

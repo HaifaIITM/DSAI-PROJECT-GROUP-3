@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from .loader import load_yahoo_csv
+from .embeddings import compute_headline_features
 
 def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14) -> pd.DataFrame:
     out = df.copy()
@@ -46,10 +47,54 @@ def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14) -> pd.
     out.insert(0, "Symbol", symbol)
     return out
 
-def process_and_save(raw_csv_path: str, symbol: str, out_dir: str) -> str:
+def process_and_save(raw_csv_path: str, symbol: str, out_dir: str, headlines_csv: str = None) -> str:
+    """
+    Process raw price data and optionally merge with headline embeddings.
+    
+    Args:
+        raw_csv_path: Path to raw OHLCV CSV
+        symbol: Ticker symbol
+        out_dir: Output directory
+        headlines_csv: Optional path to headlines CSV for embedding features
+    """
     os.makedirs(out_dir, exist_ok=True)
     raw = load_yahoo_csv(raw_csv_path)
     feats = compute_features(raw, symbol)
+    
+    # Optionally add headline embeddings
+    if headlines_csv and os.path.exists(headlines_csv):
+        try:
+            from config.settings import (
+                SMALL_MODEL, LARGE_MODEL, SMALL_PCA_DIM, LARGE_PCA_DIM,
+                AGG_METHOD, RANDOM_SEED
+            )
+            
+            print(f"\n--- Computing headline embeddings for {symbol} ---")
+            headline_feats = compute_headline_features(
+                target_dates=feats.index,
+                headlines_csv=headlines_csv,
+                small_model=SMALL_MODEL,
+                large_model=LARGE_MODEL,
+                small_pca_dim=SMALL_PCA_DIM,
+                large_pca_dim=LARGE_PCA_DIM,
+                random_state=RANDOM_SEED,
+                agg_method=AGG_METHOD
+            )
+            
+            if headline_feats is not None:
+                # Merge on date index
+                feats = feats.join(headline_feats, how="left")
+                # Fill any NaNs with 0 (in case date ranges don't perfectly overlap)
+                headline_cols = headline_feats.columns
+                feats[headline_cols] = feats[headline_cols].fillna(0.0)
+                print(f"[OK] Merged {len(headline_cols)} headline features")
+            else:
+                print("[WARN] Headline features not available, using technical features only")
+                
+        except Exception as e:
+            print(f"[WARN] Could not add headline features: {e}")
+            print("Continuing with technical features only")
+    
     out_path = os.path.join(out_dir, f"{symbol}_features.csv")
     feats.to_csv(out_path, index=True)
     return out_path
