@@ -1,0 +1,106 @@
+# Python
+*.py[cod]
+*$py.class
+*.so
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data directories (large files)
+data/raw/*.csv
+data/processed/*.csv
+data/splits/**/*.csv
+data/splits/**/*.json
+data/experiments/**/*
+
+# Keep directory structure but ignore contents
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/splits/.gitkeep
+!data/experiments/.gitkeep
+
+# Model checkpoints and weights
+*.pth
+*.pt
+*.h5
+*.pkl
+*.pickle
+*.joblib
+
+# Large data files
+*.csv
+!spy_news.csv  # Keep headlines data (needed for reproduction)
+
+# OS-specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Documentation builds
+docs/_build/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Results and outputs (keep documentation)
+baseline_comparison_*.csv
+hybrid_evaluation_*.csv
+hybrid_predictions_*.csv
+strategy_comparison_*.csv
+*.png
+!architecture/architecture.png  # Keep architecture diagram
+
+# Environment variables
+.env
+.env.local
+
+# Compiled extensions
+*.so
+
+# PyTorch specific
+lightning_logs/
+wandb/
+
+# Model-specific outputs
+checkpoints/
+saved_models/
+
