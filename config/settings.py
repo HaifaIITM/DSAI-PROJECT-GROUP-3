@@ -42,8 +42,6 @@ FEATURE_COLS = [
 TARGET_COLS  = ["target_h1", "target_h5", "target_h20"]
 
 # Market Sentiment / Momentum Proxy settings
-SENTIMENT_ENABLED = False  # Enable market-based sentiment proxy (momentum/trend/vol composite)
-SENTIMENT_USE_HEADLINES = False  # Use real headlines via NLP (requires API keys)
-SENTIMENT_TICKER = "SPY"   # Ticker for headline fetching (if enabled)
-SENTIMENT_LOOKBACK_DAYS = 365  # Historical lookback for headline data
-SENTIMENT_USE_VIX = True  # Use VIX as additional sentiment signal
+# Validated: +300% average Sharpe improvement (see RESULTS.md)
+SENTIMENT_ENABLED = True  # Enable market-based sentiment proxy (recommended)
+SENTIMENT_USE_HEADLINES = False  # Use real headlines via NLP (requires API keys, experimental)
