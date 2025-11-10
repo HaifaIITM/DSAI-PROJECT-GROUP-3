@@ -14,27 +14,29 @@ The **HybridESNRidge** model is the best-performing model across all experiments
 
 | Metric | Value | Comparison |
 |--------|-------|------------|
-| **Sharpe** | **6.267** | **#1 overall** (tied with pure ESN) |
-| **R²** | **-0.372** | **39× better than pure ESN** (-14.48) |
-| **RMSE** | **0.028** | **70% better than pure ESN** (0.093) |
-| **Dir Accuracy** | **67.1%** | **Best overall** |
-| **Turnover** | **0.131** | **Ultra-low** (stable signal) |
+| **Sharpe** | **3.926** | **2nd best** (TCN: 5.951) |
+| **R²** | **-0.420** | **5× better than baseline ESN** (-2.070) |
+| **RMSE** | **0.028** | **Tied best** with TCN |
+| **Dir Accuracy** | **57.1%** | Strong directional edge |
+| **Turnover** | **0.155** | **Ultra-low** (most stable model) |
 
 ---
 
 ## Why It Works
 
 ### Problem with Pure ESN:
-- ESN reservoir learns strong directional patterns (67% accuracy)
-- But reservoir states explode in magnitude space (R² = -14.48)
-- Ridge readout can't fix it - extreme states dominate
+- ESN baseline (default config) performs poorly (Sharpe -2.085, R² -2.070)
+- Large unregularized ESN can achieve high Sharpe but catastrophic magnitude prediction
+- Ridge readout alone can't balance direction vs magnitude
 
 ### Hybrid Solution:
 1. **ESN:** Unregularized (alpha=0.3), 1600 neurons, extracts directional signal from 38 features
 2. **Ridge:** Standard regularization (alpha=1.0), calibrates magnitude from same 38 features
 3. **Separation:** Direction and magnitude predicted independently, then combined
 
-Result: **Best directional accuracy + usable magnitude prediction**
+Result: **Strong trading performance (Sharpe 3.926) + usable magnitude prediction (R² -0.420)**
+
+**Trade-off:** Sacrifices some extreme directional edge for balanced, stable performance
 
 ---
 
@@ -65,37 +67,46 @@ y_pred = model.predict(X_test_38feat)
 ## Comparison with All Models
 
 ### vs Other 38-Feature Models (h20):
-| Model | Sharpe | R² | RMSE |
-|-------|--------|-----|------|
-| **Hybrid** | **6.267** | **-0.372** | **0.028** |
-| TCN | 4.734 | -0.478 | 0.029 |
-| LSTM | -0.199 | -0.557 | 0.030 |
-| Others | Negative | Worse | Worse |
+| Model | Sharpe | R² | RMSE | Turnover |
+|-------|--------|-----|------|----------|
+| **TCN** | **5.951** | **-0.373** | **0.028** | 0.440 |
+| **Hybrid** | **3.926** | **-0.420** | **0.028** | **0.155** |
+| LSTM | -0.199 | -0.557 | 0.030 | 0.226 |
+| ESN | -2.085 | -2.070 | 0.042 | 0.536 |
+| Ridge | -5.034 | -0.767 | 0.032 | 0.377 |
 
-### vs Best 10-Feature Models (h20):
-| Model | Sharpe | R² | RMSE |
-|-------|--------|-----|------|
-| **Hybrid (38)** | **6.267** | **-0.372** | **0.028** |
-| TCN (10) | 6.232 | -0.782 | 0.032 |
-| LSTM (10) | 2.584 | -0.630 | 0.030 |
+**TCN wins Sharpe, Hybrid wins Turnover (most stable)**
 
-**Hybrid wins on ALL metrics.**
+### vs Baseline ESN:
+| Metric | Hybrid | ESN Baseline | Improvement |
+|--------|--------|--------------|-------------|
+| Sharpe | 3.926 | -2.085 | +288% |
+| R² | -0.420 | -2.070 | 5× better |
+| RMSE | 0.028 | 0.042 | 33% better |
+| Dir Acc | 57.1% | 42.5% | +14.6 pts |
+
+**Hybrid dominates baseline ESN on all metrics.**
 
 ---
 
 ## When to Use
 
 ### Best for:
-- **h20 horizon** (20-day / monthly predictions)
-- Trading strategies requiring **high Sharpe ratio**
-- Applications needing both **direction AND magnitude**
-- Datasets with **sentiment/headline features** (headlines help at monthly horizon)
+- **Low-turnover trading strategies** (turnover 0.155 is lowest among all models)
+- Applications requiring **stable, persistent signals**
+- Alternative to TCN when **lower turnover is valued** over maximum Sharpe
+- Scenarios where **ESN's recurrent dynamics** are theoretically preferred
+- Research into **hybrid architectures** (direction/magnitude separation)
+
+### Use TCN instead for:
+- **Maximum Sharpe** (TCN: 5.951 vs Hybrid: 3.926)
+- **Best R²** (TCN: -0.373 vs Hybrid: -0.420)
+- Simpler architecture with similar RMSE
 
 ### Not ideal for:
-- h1 horizon (1-day) - LSTM performs better
-- h5 horizon (5-day) - LSTM achieves positive R²
+- h1 horizon (1-day) - Use Transformer
+- h5 horizon (5-day) - Use LSTM (achieves positive R²!)
 - Real-time trading (reservoir warmup required)
-- Scenarios where only magnitude matters (use LSTM)
 
 ---
 
@@ -128,22 +139,25 @@ print(f"R²: {result['r2']:.3f}")
 
 ## Key Insight
 
-**ESN is a perfect binary classifier but terrible regressor.** The hybrid architecture exploits this by:
-1. Using ESN for what it does best: directional prediction
-2. Using Ridge for what it needs: magnitude calibration
-3. Combining them to get both benefits
+**Hybrid architecture separates direction from magnitude.** The hybrid approach:
+1. Uses ESN for directional patterns (unregularized for strong signal)
+2. Uses Ridge for magnitude calibration (regularized for stability)
+3. Combines them: `sign(ESN) × |Ridge|`
 
-This is the **only model** achieving Sharpe > 6 with usable magnitude prediction (R² near 0).
+**Result:** Strong improvement over baseline ESN (+288% Sharpe) with ultra-low turnover (0.155), though TCN achieves higher absolute Sharpe (5.951).
+
+**Unique value:** Lowest turnover among competitive models - ideal for strategies where trading costs matter.
 
 ---
 
 ## Credits
 
 Developed through iterative experimentation:
-1. ESN baseline showed strong Sharpe but catastrophic R²
-2. Regularization improved R² but killed Sharpe
-3. Hybrid approach separated concerns and achieved both goals
-4. Strategy 2 (same features) outperformed Strategy 3 (different features)
+1. ESN baseline showed poor baseline performance
+2. Large reservoir ESNs showed potential but magnitude prediction issues
+3. Regularization improved R² but reduced Sharpe
+4. Hybrid approach (separating direction/magnitude) balanced performance
+5. Final model achieves 2nd-best Sharpe with lowest turnover
 
-**Final winner: Strategy 2 = HybridESNRidge**
+**Result: HybridESNRidge - best low-turnover model for h20 predictions**
 
