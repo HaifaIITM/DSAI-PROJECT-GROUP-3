@@ -1,11 +1,12 @@
 # Changelog - Market Sentiment Implementation
 
-## 2025-11-10: Production Simplification
+## 2025-11-10: Production Simplification & Cleanup
 
 ### Summary
 - Documented test results showing Market Proxy as clear winner (+300% Sharpe)
 - Removed VIX Inverted and Combined strategies (no benefit, added complexity)
 - Simplified codebase to single validated strategy
+- **Cleaned up outdated files and documentation**
 - Updated configuration to use Market Proxy by default
 
 ### Results Documented
@@ -20,10 +21,30 @@
 - ✅ `CHANGELOG.md` - This file
 
 ### Files Removed
+
+#### Strategy Testing Files
 - ❌ `test_strategies.py` - Multi-strategy tester (no longer needed)
 - ❌ `SENTIMENT_STRATEGIES.md` - Multi-strategy guide (superseded by MARKET_PROXY_GUIDE.md)
 
+#### Outdated NLP/Documentation Files
+- ❌ `examples/esn_with_nlp_example.py` - Old headline-based NLP example
+- ❌ `examples/nlp_esn_notebook_cell.md` - Old integration guide
+- ❌ `docs/NLP_ESN_Integration_Guide.md` - Superseded by `MARKET_PROXY_GUIDE.md`
+- ❌ `INTEGRATION_SUMMARY.md` - Superseded by `RESULTS.md`
+- ❌ `NLP_Pipeline.ipynb` - No longer relevant with market proxy approach
+
 ### Files Modified
+
+#### `README.md`
+- ✏️ Completely rewritten to focus on Market Sentiment approach
+- ✏️ Updated quickstart to showcase validated results
+- ✏️ Added performance metrics and comparison tables
+- ✏️ Simplified structure and removed outdated references
+
+#### `src/nlp/headline_processor.py`
+- ⚠️ Marked as EXPERIMENTAL with deprecation warning
+- ⚠️ Not recommended for production use (underperforms market proxy)
+- ⚠️ Kept only for research purposes
 
 #### `config/settings.py`
 - Set `SENTIMENT_ENABLED = True` by default

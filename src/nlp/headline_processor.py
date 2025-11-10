@@ -1,9 +1,25 @@
+"""
+EXPERIMENTAL: Headline-Based NLP Sentiment
+===========================================
+⚠️  NOT RECOMMENDED FOR PRODUCTION ⚠️
+
+This module fetches news headlines and computes sentiment scores.
+HOWEVER, testing shows it performs WORSE than market-based proxy.
+
+Issues:
+- Only 10-20 recent headlines available via yfinance (not historical)
+- VIX integration underperforms market proxy
+- Adds complexity without benefit
+
+Recommendation: Use market-based proxy in features.py instead.
+Status: Kept for experimental purposes only.
+"""
 
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import re, time
-from datetime import datetime, timedelta, timezone # Import timezone
+from datetime import datetime, timedelta, timezone
 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from sentence_transformers import SentenceTransformer
@@ -149,31 +165,64 @@ def generate_risk_index_timeseries(ticker="SPY", lookback_days=30, output_path=N
         raise
 
 def _merge_with_vix_proxy(nlp_risk: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """Merge headline-based risk with VIX proxy for fuller coverage"""
+    """
+    Hybrid approach: VIX baseline + NLP adjustment for recent days.
+    VIX provides full history, headlines enhance recent signal.
+    """
     import yfinance as yf
     
     try:
-        # Get VIX data
+        # Get full VIX history
         vix = yf.Ticker("^VIX")
-        hist = vix.history(period="5y")
+        hist = vix.history(period="max")
         
         if hist.empty:
             return nlp_risk
         
-        # Compute VIX-based risk (z-scored)
-        hist['vix_ret'] = np.log(hist['Close']).diff()
-        hist['vix_risk'] = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+        # Fix timezone mismatch
+        hist.index = hist.index.tz_localize(None)
+        if nlp_risk.index.tz is not None:
+            nlp_risk.index = nlp_risk.index.tz_localize(None)
+        
+        # Compute VIX-based sentiment (INVERTED: high VIX = contrarian buy signal)
+        hist['vix_z'] = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+        hist['vix_risk'] = -hist['vix_z']  # Invert: high VIX spike = bullish contrarian signal
         vix_risk = hist[['vix_risk']].dropna()
         
-        # Merge: use NLP where available, VIX elsewhere
-        merged = nlp_risk.join(vix_risk, how='outer')
-        merged['Risk_z'] = merged['Risk_z'].fillna(merged['vix_risk']).fillna(0)
-        merged['Risk_pca'] = merged['Risk_pca'].fillna(merged['vix_risk']).fillna(0)
+        # Merge both signals
+        merged = vix_risk.join(nlp_risk, how='left')
+        
+        # Hybrid strategy:
+        # 1. VIX-only periods: use VIX directly
+        # 2. NLP available periods: blend 70% VIX + 30% NLP sentiment
+        has_nlp = merged['Risk_z'].notna()
+        
+        merged['Risk_z_hybrid'] = merged['vix_risk'].copy()
+        merged.loc[has_nlp, 'Risk_z_hybrid'] = (
+            0.7 * merged.loc[has_nlp, 'vix_risk'] + 
+            0.3 * merged.loc[has_nlp, 'Risk_z']
+        )
+        
+        merged['Risk_pca_hybrid'] = merged['vix_risk'].copy()
+        merged.loc[has_nlp, 'Risk_pca_hybrid'] = (
+            0.7 * merged.loc[has_nlp, 'vix_risk'] + 
+            0.3 * merged.loc[has_nlp, 'Risk_pca']
+        )
+        
+        # Use hybrid signals
+        merged['Risk_z'] = merged['Risk_z_hybrid']
+        merged['Risk_pca'] = merged['Risk_pca_hybrid']
+        
+        nlp_days = has_nlp.sum()
+        total_days = len(merged)
+        print(f"  VIX baseline: {total_days} days | NLP enhanced: {nlp_days} days ({nlp_days/total_days*100:.1f}%)")
         
         return merged[['Risk_z', 'Risk_pca']].dropna()
     
     except Exception as e:
         print(f"Warning: VIX proxy merge failed ({e})")
+        import traceback
+        traceback.print_exc()
         return nlp_risk
 
 def _vix_only_proxy(ticker: str, lookback_days: int, output_path=None) -> pd.DataFrame:
@@ -183,11 +232,17 @@ def _vix_only_proxy(ticker: str, lookback_days: int, output_path=None) -> pd.Dat
     vix = yf.Ticker("^VIX")
     hist = vix.history(period="max")
     
-    # Simple VIX-based risk
-    hist['Risk_z'] = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+    # Fix timezone
+    hist.index = hist.index.tz_localize(None)
+    
+    # VIX-based sentiment (INVERTED: high VIX = contrarian buy opportunity)
+    vix_z = (hist['Close'] - hist['Close'].rolling(60).mean()) / hist['Close'].rolling(60).std()
+    hist['Risk_z'] = -vix_z  # Invert: fear = opportunity
     hist['Risk_pca'] = hist['Risk_z']
     
     risk_ts = hist[['Risk_z', 'Risk_pca']].dropna()
+    
+    print(f"  VIX-only fallback: {len(risk_ts)} days of data")
     
     if output_path:
         risk_ts.to_csv(output_path)

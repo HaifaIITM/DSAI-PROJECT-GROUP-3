@@ -8,7 +8,7 @@ from config.settings import (
     TRAIN_DAYS, TEST_DAYS, STEP_DAYS,
     ANCHOR_TICKER, USE_INTERSECTION,
     FEATURE_COLS, TARGET_COLS,
-    NLP_ENABLED, NLP_TICKER, NLP_LOOKBACK_DAYS, NLP_USE_VIX_PROXY
+    SENTIMENT_ENABLED, SENTIMENT_USE_HEADLINES
 )
 
 from .utils.io import ensure_dir, save_json, read_json
@@ -33,27 +33,29 @@ def _find_latest_raw(prefix: str) -> str:
 def run_process() -> Dict[str, str]:
     ensure_dir(PROC_DIR)
     
-    # Generate NLP risk index if enabled
+    # Generate headline-based sentiment if enabled (experimental)
     risk_df = None
-    if NLP_ENABLED:
+    if SENTIMENT_USE_HEADLINES:
         try:
             from .nlp.headline_processor import generate_risk_index_timeseries
-            print(f"Generating NLP risk index for {NLP_TICKER} (lookback: {NLP_LOOKBACK_DAYS} days)...")
+            print(f"Generating sentiment index from headlines (experimental)...")
             risk_df = generate_risk_index_timeseries(
-                ticker=NLP_TICKER,
-                lookback_days=NLP_LOOKBACK_DAYS,
-                output_path=os.path.join(PROC_DIR, f"{NLP_TICKER}_risk_index.csv"),
-                use_vix_proxy=NLP_USE_VIX_PROXY
+                ticker="SPY",
+                lookback_days=365,
+                output_path=os.path.join(PROC_DIR, "SPY_sentiment_index.csv"),
+                use_vix_proxy=True
             )
-            print(f"Risk index generated: {len(risk_df)} days (VIX proxy: {NLP_USE_VIX_PROXY})")
+            print(f"Headline sentiment generated: {len(risk_df)} days")
         except Exception as e:
-            print(f"Warning: Could not generate NLP risk index: {e}")
-            print("Continuing without NLP features...")
+            print(f"Warning: Could not generate headline sentiment: {e}")
+            print(f"Continuing with market-based proxy...")
             risk_df = None
     
-    # Always generate GSPC & ANCHOR_TICKER features so we can intersect if needed
+    # Always generate GSPC & ANCHOR_TICKER features
+    # Market proxy will be used automatically if risk_df is None
     gspc_raw = _find_latest_raw("GSPC")
     anchor_raw = _find_latest_raw(ANCHOR_TICKER)
+    
     gspc_out = process_and_save(gspc_raw, "GSPC", PROC_DIR, risk_df=risk_df)
     anchor_out = process_and_save(anchor_raw, ANCHOR_TICKER, PROC_DIR, risk_df=risk_df)
     return {"GSPC": gspc_out, ANCHOR_TICKER: anchor_out}
