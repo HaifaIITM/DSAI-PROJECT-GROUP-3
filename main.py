@@ -374,14 +374,14 @@ def main() -> None:
     for fold_id in folds_to_run:
         for horizon in horizons:
             result_esn = run_baseline(model_name="esn", fold_id=fold_id, horizon=horizon)
-            # result_ridge = run_baseline(model_name="ridge", fold_id=fold_id, horizon=horizon)
-            # result_lstm = run_baseline(model_name="lstm", fold_id=fold_id, horizon=horizon)
-            # result_tf = run_baseline(model_name="transformer", fold_id=fold_id, horizon=horizon)
-            # result_tcn = run_baseline(model_name="tcn", fold_id=fold_id, horizon=horizon)
+            result_ridge = run_baseline(model_name="ridge", fold_id=fold_id, horizon=horizon)
+            result_lstm = run_baseline(model_name="lstm", fold_id=fold_id, horizon=horizon)
+            result_tf = run_baseline(model_name="transformer", fold_id=fold_id, horizon=horizon)
+            result_tcn = run_baseline(model_name="tcn", fold_id=fold_id, horizon=horizon)
             print(
                 f"fold={fold_id}, horizon={horizon} | "
-                 f"esn={result_esn}"# | ridge={result_ridge} | "
-                # f"lstm={result_lstm} | transformer={result_tf} | tcn={result_tcn}"
+                 f"esn={result_esn} | ridge={result_ridge} | "
+                f"lstm={result_lstm} | transformer={result_tf} | tcn={result_tcn}"
             )
 
 

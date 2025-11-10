@@ -42,7 +42,8 @@ AGG_METHOD = "mean"  # daily aggregation
 RANDOM_SEED = 42
 
 # features/targets
-FEATURE_COLS = [
+# Full feature set (38 features: 10 technical + 28 headline embeddings)
+FEATURE_COLS_FULL = [
     "ret_1","ret_2","ret_5",
     "vol_20","ma_10","ma_20","ma_gap",
     "rsi_14","vol_z","dow",
@@ -57,4 +58,15 @@ FEATURE_COLS = [
     "pca_13_large", "pca_14_large",
     "has_news_large"
 ]
+
+# Technical features only (10 features)
+FEATURE_COLS_TECH = [
+    "ret_1","ret_2","ret_5",
+    "vol_20","ma_10","ma_20","ma_gap",
+    "rsi_14","vol_z","dow"
+]
+
+# Active feature set (switch between FEATURE_COLS_FULL and FEATURE_COLS_TECH)
+FEATURE_COLS = FEATURE_COLS_FULL  # <--- Using 38 features (10 technical + 28 headline embeddings)
+
 TARGET_COLS  = ["target_h1", "target_h5", "target_h20"]
