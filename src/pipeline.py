@@ -8,8 +8,9 @@ from config.settings import (
     TRAIN_DAYS, TEST_DAYS, STEP_DAYS,
     ANCHOR_TICKER, USE_INTERSECTION,
     FEATURE_COLS, TARGET_COLS,
-    SENTIMENT_ENABLED, SENTIMENT_USE_HEADLINES
+    SENTIMENT_USE_HEADLINES
 )
+from config import settings
 
 from .utils.io import ensure_dir, save_json, read_json
 from .data.download import download_many
@@ -96,9 +97,15 @@ def run_materialize_folds(proc_paths: Dict[str, str], folds: List[Dict]) -> None
         gspc = _read_proc(proc_paths["GSPC"])
         idx = gspc.index.intersection(anchor.index).sort_values()
         anchor = anchor.loc[idx]
+    
+    # Dynamic feature list based on sentiment flag
+    features = FEATURE_COLS.copy()
+    if not settings.SENTIMENT_ENABLED and "risk_index" in features:
+        features.remove("risk_index")
+    
     for k, fold in enumerate(folds):
         fold_dir = os.path.join(SPLIT_DIR, f"fold_{k}")
-        materialize_fold(anchor, FEATURE_COLS, TARGET_COLS, fold, fold_dir)
+        materialize_fold(anchor, features, TARGET_COLS, fold, fold_dir)
 
 # --------- TRAIN / EVAL (single fold) ---------
 def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1") -> Dict:

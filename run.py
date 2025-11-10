@@ -3,16 +3,21 @@ ESN + Market Sentiment Proxy Pipeline
 ======================================
 Run this script to train the ESN model with market-based sentiment features.
 Market proxy: 40% momentum + 30% trend + 20% vol regime + 10% RSI
-Validated: +300% average Sharpe improvement (see RESULTS.md)
 
 Usage:
     python run.py                    # Run with sentiment proxy (default)
     python run.py --baseline         # Run baseline without sentiment
-    python run.py --compare          # Compare baseline vs sentiment
+    python run.py --compare          # Compare baseline vs sentiment (fair comparison)
+    
+Fair Comparison Mode (--compare):
+    Downloads raw data once, then processes twice (with/without sentiment)
+    to ensure both models see identical underlying price data.
+    Uses seed=42 for reproducibility.
 """
 
 import sys
 import os
+import glob
 import argparse
 import pandas as pd
 
@@ -26,6 +31,27 @@ from src.pipeline import (
     run_materialize_folds, 
     run_baseline
 )
+
+
+def _ensure_raw_data(force: bool = False) -> int:
+    """
+    Ensure raw datasets are available.
+    Returns number of raw CSV files available after the call.
+    """
+    required = len(settings.SYMBOLS)
+    existing_files = glob.glob(os.path.join(settings.RAW_DIR, "*.csv"))
+    if force or len(existing_files) < required:
+        try:
+            res = run_download()
+            count = len(res)
+            print(f"  Downloaded {count} datasets")
+            return count
+        except Exception as exc:
+            print(f"  Warning: download failed ({exc}); attempting to use existing files")
+            existing_files = glob.glob(os.path.join(settings.RAW_DIR, "*.csv"))
+    else:
+        print(f"  Using existing raw data ({len(existing_files)} files)")
+    return len(existing_files)
 
 
 def print_header(title):
@@ -71,8 +97,13 @@ def verify_risk_index():
     return has_risk
 
 
-def run_with_sentiment(fold_id=0, horizon="target_h1"):
+def run_with_sentiment(fold_id=0, horizon="target_h1", force_download=False):
     """Run pipeline with market sentiment proxy enabled"""
+    import numpy as np
+    
+    # CRITICAL: Set global seed at pipeline start for reproducibility
+    np.random.seed(42)
+    
     print_header("ESN + Market Sentiment Proxy Pipeline")
     
     # Enable market sentiment proxy
@@ -80,18 +111,14 @@ def run_with_sentiment(fold_id=0, horizon="target_h1"):
     settings.SENTIMENT_USE_HEADLINES = False
     
     print(f"\n[CONFIG]")
-    print(f"  Strategy:          Market Proxy (+300% Sharpe validated)")
+    print(f"  Strategy:          Market Proxy")
     print(f"  Components:        40% momentum, 30% trend, 20% vol, 10% RSI")
     print(f"  Fold ID:           {fold_id}")
     print(f"  Horizon:           {horizon}")
     
-    # Step 1: Download
-    print("\n[1/5] Downloading data...")
-    try:
-        res = run_download()
-        print(f"  Downloaded {len(res)} datasets")
-    except Exception as e:
-        print(f"  Using existing data: {e}")
+    # Step 1: Prepare raw data (skip download if already done)
+    print("\n[1/5] Preparing raw data...")
+    _ensure_raw_data(force=force_download)
     
     # Step 2: Process with market sentiment
     print("\n[2/5] Processing features and generating market sentiment proxy...")
@@ -122,8 +149,13 @@ def run_with_sentiment(fold_id=0, horizon="target_h1"):
     return result
 
 
-def run_baseline_only(fold_id=0, horizon="target_h1"):
+def run_baseline_only(fold_id=0, horizon="target_h1", force_download=False):
     """Run pipeline without market sentiment proxy (baseline)"""
+    import numpy as np
+    
+    # CRITICAL: Set global seed at pipeline start for reproducibility
+    np.random.seed(42)
+    
     print_header("ESN Baseline Pipeline (No Sentiment Proxy)")
     
     # Disable sentiment proxy
@@ -134,20 +166,24 @@ def run_baseline_only(fold_id=0, horizon="target_h1"):
     print(f"  Fold ID:           {fold_id}")
     print(f"  Horizon:           {horizon}")
     
+    # Download data (same as sentiment run to ensure identical code path)
+    print("\n[1/5] Preparing raw data...")
+    _ensure_raw_data(force=force_download)
+    
     # Process without sentiment proxy
-    print("\n[1/4] Processing features (baseline only)...")
+    print("\n[2/5] Processing features (baseline only)...")
     proc_paths = run_process()
     print(f"  Processed: {list(proc_paths.keys())}")
     
-    print("\n[2/4] Building splits...")
+    print("\n[3/5] Building splits...")
     folds = run_build_splits(proc_paths)
     print(f"  Created {len(folds)} folds")
     
-    print("\n[3/4] Materializing folds...")
+    print("\n[4/5] Materializing folds...")
     run_materialize_folds(proc_paths, folds)
     print(f"  Folds materialized")
     
-    print("\n[4/4] Training ESN baseline...")
+    print("\n[5/5] Training ESN baseline...")
     result = run_baseline(model_name="esn", fold_id=fold_id, horizon=horizon)
     print("  Training complete")
     
@@ -158,14 +194,87 @@ def run_baseline_only(fold_id=0, horizon="target_h1"):
 
 
 def compare_models(fold_id=0, horizon="target_h1"):
-    """Run both baseline and sentiment proxy versions and compare"""
+    """
+    Run baseline and sentiment versions on identical raw data for fair comparison.
+    
+    Strategy:
+    1. Download raw data once
+    2. Process baseline (sentiment disabled) → train ESN
+    3. Process sentiment (sentiment enabled, reuse raw data) → train ESN
+    4. Compare results
+    
+    This ensures both models see the same underlying price data.
+    """
+    import shutil
+    import numpy as np
+    
+    def cleanup_processed():
+        """Remove only processed/splits to force feature regeneration"""
+        paths_removed = []
+        for path in ["data/processed", "data/splits"]:
+            if os.path.exists(path):
+                shutil.rmtree(path)
+                paths_removed.append(path)
+        if paths_removed:
+            print(f"[CLEANUP] Removed: {', '.join(paths_removed)}")
+    
     print_header("Comparison: ESN Baseline vs ESN + Market Proxy")
+    print("Strategy: Single download, dual processing for fair comparison")
+    print("Seed: 42 (both runs)\n")
     
-    # Run baseline
-    result_baseline = run_baseline_only(fold_id, horizon)
+    # Step 0: Download raw data once (shared by both runs)
+    print("\n[STEP 0/2] Preparing shared raw data...")
+    cleanup_processed()  # Clean old processed/splits (raw retained)
+    _ensure_raw_data(force=True)
     
-    # Run with sentiment proxy
-    result_sentiment = run_with_sentiment(fold_id, horizon)
+    # Step 1: Run baseline (no sentiment, reuse raw data)
+    print("\n[STEP 1/2] Running Baseline (No Sentiment)")
+    cleanup_processed()  # Clean before baseline processing
+    np.random.seed(42)
+    
+    settings.SENTIMENT_ENABLED = False
+    print("\n[1.1] Processing features (baseline, no sentiment)...")
+    proc_paths = run_process()
+    print(f"  Processed: {list(proc_paths.keys())}")
+    
+    print("\n[1.2] Building splits...")
+    folds = run_build_splits(proc_paths)
+    print(f"  Created {len(folds)} folds")
+    
+    print("\n[1.3] Materializing folds...")
+    run_materialize_folds(proc_paths, folds)
+    print(f"  Folds materialized (10 features)")
+    
+    print("\n[1.4] Training ESN baseline...")
+    result_baseline = run_baseline(model_name="esn", fold_id=fold_id, horizon=horizon)
+    print("  Training complete")
+    print_results(result_baseline, "ESN Baseline")
+    
+    # Step 2: Run sentiment (with sentiment, reuse same raw data)
+    print("\n[STEP 2/2] Running with Market Sentiment Proxy")
+    cleanup_processed()  # Clean before sentiment processing
+    np.random.seed(42)
+    
+    settings.SENTIMENT_ENABLED = True
+    settings.SENTIMENT_USE_HEADLINES = False
+    print("\n[2.1] Processing features (with market sentiment proxy)...")
+    proc_paths = run_process()
+    print(f"  Processed: {list(proc_paths.keys())}")
+    
+    print("\n[2.2] Building splits...")
+    folds = run_build_splits(proc_paths)
+    print(f"  Created {len(folds)} folds")
+    
+    print("\n[2.3] Materializing folds...")
+    run_materialize_folds(proc_paths, folds)
+    print(f"  Folds materialized (11 features)")
+    
+    verify_risk_index()
+    
+    print("\n[2.4] Training ESN with sentiment...")
+    result_sentiment = run_baseline(model_name="esn", fold_id=fold_id, horizon=horizon)
+    print("  Training complete")
+    print_results(result_sentiment, "ESN + Market Proxy")
     
     # Comparison table
     print_header("Comparison Results")
@@ -212,7 +321,7 @@ def compare_models(fold_id=0, horizon="target_h1"):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Run ESN model with market sentiment proxy (validated: +300% Sharpe)"
+        description="Run ESN model with market sentiment proxy for financial forecasting"
     )
     parser.add_argument(
         "--baseline", 
@@ -222,7 +331,7 @@ def main():
     parser.add_argument(
         "--compare", 
         action="store_true",
-        help="Compare baseline vs sentiment proxy"
+        help="Compare baseline vs sentiment (downloads once, processes twice for fair comparison)"
     )
     parser.add_argument(
         "--fold", 

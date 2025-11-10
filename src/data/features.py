@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from config import settings
 from .loader import load_yahoo_csv
 
 def _compute_market_sentiment_proxy(df: pd.DataFrame) -> pd.Series:
@@ -79,15 +80,16 @@ def compute_features(df: pd.DataFrame, symbol: str, rsi_window: int = 14, risk_d
     # calendar
     out["dow"] = out.index.dayofweek
 
-    # Sentiment index: Use headlines if available, otherwise market proxy
-    if risk_df is not None and not risk_df.empty:
-        # Use headline-based sentiment if available (experimental)
-        out = out.join(risk_df[['Risk_z']], how='left')
-        out['risk_index'] = out['Risk_z'].ffill().fillna(0)
-        out = out.drop(columns=['Risk_z'], errors='ignore')
-    else:
-        # Market-based sentiment proxy (validated: +300% Sharpe)
-        out['risk_index'] = _compute_market_sentiment_proxy(out)
+    # Sentiment index: Only add if enabled (controlled by settings.SENTIMENT_ENABLED)
+    if settings.SENTIMENT_ENABLED:
+        if risk_df is not None and not risk_df.empty:
+            # Use headline-based sentiment if available (experimental)
+            out = out.join(risk_df[['Risk_z']], how='left')
+            out['risk_index'] = out['Risk_z'].ffill().fillna(0)
+            out = out.drop(columns=['Risk_z'], errors='ignore')
+        else:
+            # Market-based sentiment proxy (validated: +300% Sharpe)
+            out['risk_index'] = _compute_market_sentiment_proxy(out)
 
     # targets (forward)
     out["target_h1"]  = out["ret_1"].shift(-1)

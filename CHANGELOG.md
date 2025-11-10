@@ -1,13 +1,65 @@
 # Changelog - Market Sentiment Implementation
 
-## 2025-11-10: Production Simplification & Cleanup
+## 2025-11-10: Major Refactoring - Three Critical Bugs Fixed
+
+### **BREAKING CHANGES**
+All previous performance claims (+300% Sharpe) were based on contaminated data and are **invalid**. After fixing three critical bugs, the pipeline now provides reproducible, fair comparisons. Initial testing on fold 0 shows the market proxy **degrades** performance (−65% Sharpe). Cross-fold validation needed before any performance claims.
+
+See `BUGFIXES.md` for complete technical details.
+
+---
+
+## 2025-11-10: Production Simplification & Critical Bug Fix
 
 ### Summary
+- **🐛 CRITICAL FIX:** Data contamination in comparison mode causing false results
 - Documented test results showing Market Proxy as clear winner (+300% Sharpe)
 - Removed VIX Inverted and Combined strategies (no benefit, added complexity)
 - Simplified codebase to single validated strategy
 - **Cleaned up outdated files and documentation**
 - Updated configuration to use Market Proxy by default
+
+### Critical Bug Fix #1 - Data Contamination
+**Problem:** Baseline results were contaminated by previous sentiment runs
+- `compare_models()` was reusing cached data between baseline and sentiment runs
+- Baseline in run N+1 was reading sentiment data from run N
+- Caused extreme variance: Sharpe ranging from 0.529 to 1.350 on same fold
+
+**Solution:** Added automatic data cleanup between runs
+- `compare_models()` now removes `data/processed` and `data/splits` before each run
+- Ensures truly independent baseline vs sentiment comparisons
+
+### Critical Bug Fix #2 - ESN Randomness
+**Problem:** ESN reservoir initialization was non-deterministic across runs
+- Baseline Sharpe varied from -0.436 to 2.981 on same fold (even with data cleanup)
+- `seed=0` parameter in ESN wasn't sufficient - global numpy state changed during data processing
+- Baseline N+1 results equaled Market Proxy N results (contamination pattern)
+- Made it impossible to reliably validate performance improvements
+
+**Solution:** Synchronized random state and code paths
+- Added `np.random.seed(42)` at start of both pipelines
+- Made baseline call `run_download()` (same code path as sentiment)
+- Ensures both pipelines execute identical operations before ESN training
+
+### Critical Bug Fix #3 - Sentiment Feature Not Applied
+**Problem:** Market sentiment feature had zero effect (baseline = market proxy results)
+- Both runs produced byte-for-byte identical results despite different feature counts
+- `SENTIMENT_ENABLED` flag was never checked in `compute_features()`
+- `risk_index` was ALWAYS generated, even when sentiment was disabled
+- Made all comparisons meaningless - baseline was already using the feature!
+
+**Solution:** Respect SENTIMENT_ENABLED flag in features.py and pipeline.py
+- Added conditional check in `compute_features()`: only create `risk_index` when `SENTIMENT_ENABLED = True`
+- Added dynamic feature list in `run_materialize_folds()`: exclude `risk_index` from `FEATURE_COLS` when sentiment disabled
+- Baseline now truly runs without sentiment (10 features)
+- Market proxy runs with sentiment (11 features including z_risk_index)
+- Comparisons now measure actual impact of sentiment feature
+
+### Additional Fix - Raw Data Reuse (2025-11-10)
+- Introduced `_ensure_raw_data()` helper in `run.py` to reuse downloaded CSVs
+- `run_with_sentiment()` and `run_baseline_only()` now reuse raw data unless `force_download=True`
+- `compare_models()` downloads raw data once, then processes baseline and sentiment separately on identical data
+- Eliminates performance swings caused by repeated yfinance downloads mid-comparison
 
 ### Results Documented
 - **Average Sharpe Improvement:** +300% (from -0.005 to 0.939)
