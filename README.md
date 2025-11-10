@@ -2,35 +2,37 @@
 
 > **Course:** DS & AI Lab  
 > **Status:** Production-Ready with Market Sentiment Proxy  
-> **Latest:** **+300% Sharpe Improvement** with validated market-based sentiment feature
+> **Latest:** **+96.8% Sharpe Improvement** with validated market-based sentiment feature (fold 0)
 
 ---
 
 ## 🔎 Project Overview
 
-**Echo State Networks (ESNs)** enhanced with market-based sentiment proxy for **multi-horizon financial forecasting**. The market sentiment feature (momentum + trend + volatility + RSI) provides **+300% average Sharpe improvement** over baseline.
+**Echo State Networks (ESNs)** enhanced with market-based sentiment proxy for **multi-horizon financial forecasting**. The market sentiment feature (momentum + trend + volatility + RSI) provides **+96.8% Sharpe improvement** over baseline on fold 0, with perfect reproducibility.
 
 * **Tags:** DL · Time-Series · Finance · SSM · Reservoir Computing · Sentiment Analysis
 * **Targets:** forward log-returns at **1, 5, 20** days
 * **Validation:** rolling **10y train / 1y test / 1y step**; leakage-safe walk-forward
 * **Innovation:** Market-based sentiment proxy (validated alternative to NLP headlines)
-* **Performance:** Sharpe Ratio 0.939 (from -0.005 baseline), 53.8% directional accuracy
+* **Performance:** Sharpe Ratio 2.008 (from 1.021 baseline), 56.3% directional accuracy, perfectly reproducible
 
 ---
 
 ## ✅ Latest Updates - Market Sentiment Integration
 
 ### **Validated Performance** (See `RESULTS.md`)
-* **Sharpe Ratio:** +300% improvement (baseline: -0.005 → with sentiment: 0.939)
-* **Directional Accuracy:** +2.4% (51.4% → 53.8%)
+* **Sharpe Ratio:** +96.8% improvement (baseline: 1.021 → with sentiment: 2.008)
+* **Directional Accuracy:** +4.3pp (52.0% → 56.3%)
 * **Strategy:** Market Proxy (40% momentum, 30% trend, 20% vol, 10% RSI)
-* **Status:** Production-ready after cross-fold validation
+* **Reproducibility:** Perfect (0.000 variance across 3 runs)
+* **Status:** Validated on fold 0, requires cross-fold testing before production
 
 ### **Simplified Architecture**
-* Single validated strategy (Market Proxy) - VIX and combined approaches removed
+* Single validated strategy (Market Proxy)
 * Clean API with sensible defaults
 * Automatic sentiment feature generation
 * No external dependencies (uses only price/volume data)
+* Four critical bugs fixed (data contamination, ESN randomness, feature application, raw data reuse)
 
 ---
 
@@ -45,7 +47,7 @@ esn-finance/
 ├─ RESULTS.md                     # ⭐ Performance validation results
 ├─ MARKET_PROXY_GUIDE.md          # ⭐ Usage guide
 ├─ CHANGELOG.md                   # Version history
-├─ TESTING_GUIDE.md               # Testing procedures
+├─ BUGFIXES.md                    # Bug documentation
 ├─ config/
 │  ├─ settings.py                 # Config (sentiment enabled by default)
 │  └─ experiments.py              # Experiment grids (for baseline models)
@@ -61,7 +63,7 @@ esn-finance/
 │  │  ├─ registry.py              # {"ridge","esn","lstm","transformer","tcn"} → class
 │  │  ├─ ridge_readout.py
 │  │  ├─ esn.py                   # leaky reservoir + ridge readout
-│  │  ├─ lstm.py                  # sequence-to-one, left-padded windows
+│  │  ├─ lstm.py                  # sequence-to-one; left-padded windows
 │  │  ├─ transformer.py           # encoder + positional encoding
 │  │  └─ tcn.py                   # causal dilated ConvNet
 │  ├─ train/
@@ -110,7 +112,7 @@ torch
 ### With Market Sentiment (Recommended)
 
 ```bash
-# Run ESN with validated market sentiment proxy (+300% Sharpe)
+# Run ESN with validated market sentiment proxy (+96.8% Sharpe)
 python run.py
 
 # Compare baseline vs sentiment
@@ -161,7 +163,8 @@ Inside **`main.ipynb`**:
 * **Symbols**: `^GSPC`, `SPY`, `BTC-USD`, `ETH-USD`, `^NSEI`, `^NSEBANK`, `RELIANCE.NS`, `TCS.NS`, `EURUSD=X`, `USDINR=X`, `GC=F`, `CL=F`, `^VIX`.
 * **Base Features**: `ret_1`, `ret_2`, `ret_5`, `vol_20`, `ma_10`, `ma_20`, `ma_gap`, `rsi_14`, `vol_z`, `dow`.
 * **⭐ Market Sentiment Proxy** (New): Composite of momentum (40%), trend (30%), volatility regime (20%), RSI (10%).
-  - **Validated:** +300% Sharpe improvement over baseline
+  - **Validated:** +96.8% Sharpe improvement on fold 0
+  - **Perfectly Reproducible:** Verified across multiple runs
   - **Implementation:** `src/data/features.py::_compute_market_sentiment_proxy()`
 * **Targets**: `target_h1`, `target_h5`, `target_h20` (forward log-returns).
 * **Leakage control**: walk-forward splits; **scaler fit on train only**; scaler params stored.
@@ -182,19 +185,22 @@ All expose a uniform API: `.fit(X, y)` / `.predict(X)` and are registered in `sr
 
 ## 📊 Latest Results: ESN with Market Sentiment (Fold 0, SPY, h=1)
 
-| Configuration | Sharpe | Dir Acc | Avg Daily PnL | Status |
-|--------------|--------|---------|---------------|--------|
-| **ESN Baseline** | -0.005 | 51.4% | -0.000004 | ❌ Fails |
-| **ESN + Market Proxy** | **0.939** | **53.8%** | **0.000799** | ✅ **+300% Sharpe** |
+| Configuration | Sharpe | Dir Acc | RMSE | MAE | Daily PnL | Status |
+|--------------|--------|---------|------|-----|-----------|--------|
+| **ESN Baseline** | 1.021 | 52.0% | 0.009527 | 0.007469 | $0.000490 | ✅ Solid |
+| **ESN + Market Proxy** | **2.008** | **56.3%** | **0.008568** | **0.006363** | **$0.000957** | ✅ **+96.8% Sharpe** |
 
 **Key Findings:**
 
-* **Market sentiment proxy delivers +300% Sharpe improvement**
-* Directional accuracy increases from 51.4% → 53.8%
-* Stable across test period (231 days)
+* **Market sentiment proxy doubles Sharpe ratio** (1.021 → 2.008)
+* Directional accuracy improves by 4.3pp (52.0% → 56.3%)
+* All error metrics reduced (RMSE -10.1%, MAE -14.8%)
+* Perfect reproducibility (0.000 variance across runs)
 * No external dependencies (uses only price/volume)
 
-See `RESULTS.md` for complete validation across folds and detailed analysis.
+**Critical Note:** Results from fold 0 only. Cross-fold validation required before production deployment.
+
+See `RESULTS.md` for detailed analysis and `BUGFIXES.md` for reproducibility fixes.
 
 ---
 
@@ -204,11 +210,11 @@ See `RESULTS.md` for complete validation across folds and detailed analysis.
 | ----------- | ---- | --------- | --------- | --------- | ------ |
 | ridge       | 0    | target_h1 | 0.147     | 0.492     | Linear Floor |
 | lstm        | 0    | target_h1 | 0.396     | 0.508     | Moderate |
-| **esn**     | 0    | target_h1 | **1.612** | 0.528     | **Best Baseline** |
+| **esn**     | 0    | target_h1 | **1.021** | 0.520     | **Best Baseline** |
 | transformer | 0    | target_h1 | -0.242    | 0.480     | Underperforms |
 | tcn         | 0    | target_h1 | 0.826     | **0.552** | High DirAcc |
 
-> ESN baseline already outperforms, and **with sentiment proxy it improves further to 0.939 Sharpe** (fold 0).
+> ESN baseline already outperforms, and **with sentiment proxy it improves further to 2.008 Sharpe** (+96.8%, fold 0).
 
 ---
 

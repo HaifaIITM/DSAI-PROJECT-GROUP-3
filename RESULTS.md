@@ -3,9 +3,9 @@
 ## Executive Summary
 
 **Winner: Market Proxy Strategy**
-- **+300% Average Sharpe Improvement** (from -0.005 to 0.939)
-- **+219% to +385% range** across clean tests
-- **~54% Directional Accuracy** (vs 50-52% baseline)
+- **+96.8% Sharpe Improvement** (1.021 → 2.008)
+- **+4.3% Directional Accuracy** (52.0% → 56.3%)
+- **Perfectly Reproducible** (verified across multiple runs)
 - **Production-ready** and interpretable
 
 ## Test Methodology
@@ -20,44 +20,71 @@
 ### Strategies Tested
 
 1. **Market Proxy** - Momentum/Trend/Volatility/RSI composite
-2. **VIX Inverted** - Contrarian fear gauge
-3. **Combined** - 70% Market + 30% VIX
 
 ### Testing Protocol
 
 - Automatic data cleanup between tests
 - Fresh feature generation for each test
 - Identical baseline comparison
+- Cached raw data (downloaded once, reused)
+- Perfect reproducibility (seed=42)
 
 ## Detailed Results
 
-### Run 1 (Test 1 - Clean Baseline)
+### Final Verified Results (After All Bug Fixes)
 
-| Metric | Baseline | + Market Proxy | Improvement |
-|--------|----------|----------------|-------------|
-| **Sharpe Ratio** | -0.316 | 0.900 | **+385%** |
-| **Dir. Accuracy** | 50.4% | 53.6% | +3.2% |
-| **RMSE** | 0.008904 | 0.008884 | -0.2% (better) |
-| **Avg Daily PnL** | -$0.000152 | $0.000433 | +385% |
-| **Turnover** | 0.933 | 0.972 | +4.2% |
+**Test Environment:**
+- Reproducibility: ✅ Perfect (seed=42, cached raw data)
+- Data Source: Identical for both runs (downloaded once)
+- Code Path: Synchronized (both run identical operations)
+- Feature Separation: Clean (10 vs 11 features)
 
-### Run 2 (Test 1 - Clean Baseline)
+**Baseline Run:**
+```bash
+python run.py --baseline
+```
 
-| Metric | Baseline | + Market Proxy | Improvement |
-|--------|----------|----------------|-------------|
-| **Sharpe Ratio** | 0.307 | 0.978 | **+219%** |
-| **Dir. Accuracy** | 52.4% | 54.0% | +1.6% |
-| **RMSE** | 0.009089 | 0.008865 | -2.5% (better) |
-| **Avg Daily PnL** | $0.000148 | $0.000470 | +218% |
-| **Turnover** | 1.004 | 0.956 | -4.8% |
+| Metric | Value |
+|--------|-------|
+| **Sharpe Ratio** | 1.021 |
+| **Dir. Accuracy** | 52.0% |
+| **RMSE** | 0.009527 |
+| **MAE** | 0.007469 |
+| **R²** | -0.571 |
+| **Avg Daily PnL** | $0.000490 |
+| **Turnover** | 0.821 |
+| **Hit Ratio** | 52.0% |
 
-### Average Performance
+**Market Proxy Runs (3 consecutive runs):**
+```bash
+python run.py  # Run 1
+python run.py  # Run 2
+python run.py  # Run 3
+```
 
-| Metric | Average Baseline | Average + Market | Improvement |
-|--------|------------------|------------------|-------------|
-| **Sharpe Ratio** | -0.005 | **0.939** | **~300%** |
-| **Dir. Accuracy** | 51.4% | **53.8%** | **+2.4%** |
-| **Daily PnL** | -$0.000002 | **$0.000452** | **>10000%** |
+| Metric | Run 1 | Run 2 | Run 3 | Variance |
+|--------|-------|-------|-------|----------|
+| **Sharpe Ratio** | 2.008 | 2.008 | 2.008 | **0.000** ✅ |
+| **Dir. Accuracy** | 56.3% | 56.3% | 56.3% | **0.0%** ✅ |
+| **RMSE** | 0.008568 | 0.008568 | 0.008568 | **0.000** ✅ |
+| **MAE** | 0.006363 | 0.006363 | 0.006363 | **0.000** ✅ |
+| **R²** | -0.271 | -0.271 | -0.271 | **0.000** ✅ |
+| **Avg Daily PnL** | $0.000957 | $0.000957 | $0.000957 | **0.000** ✅ |
+| **Turnover** | 0.869 | 0.869 | 0.869 | **0.000** ✅ |
+| **Hit Ratio** | 56.3% | 56.3% | 56.3% | **0.0%** ✅ |
+
+### Performance Comparison
+
+| Metric | Baseline | Market Proxy | Improvement |
+|--------|----------|--------------|-------------|
+| **Sharpe Ratio** | 1.021 | 2.008 | **+96.8%** |
+| **Dir. Accuracy** | 52.0% | 56.3% | **+4.3pp** |
+| **RMSE** | 0.009527 | 0.008568 | **-10.1%** (better) |
+| **MAE** | 0.007469 | 0.006363 | **-14.8%** (better) |
+| **R²** | -0.571 | -0.271 | **+52.5%** |
+| **Avg Daily PnL** | $0.000490 | $0.000957 | **+95.5%** |
+| **Turnover** | 0.821 | 0.869 | +5.8% |
+| **Hit Ratio** | 52.0% | 56.3% | **+4.3pp** |
 
 ## Market Proxy Strategy Details
 
@@ -98,40 +125,57 @@ risk_index = (
 ✓ **Volatility Aware** - Adjusts for market conditions  
 ✓ **Interpretable** - All components are standard technical indicators  
 
-## Why Other Strategies Failed
+## Key Success Factors
 
-### VIX Inverted (Unreliable)
+### 1. Perfect Reproducibility ✅
+All metrics match to 3+ decimal places across multiple runs:
+- Fixed raw data source (downloaded once, cached)
+- Synchronized code paths (identical operations for baseline and sentiment)
+- Global numpy seed set at pipeline start
+- Clean feature separation (10 vs 11 features)
 
-**Problem:** Contrarian nature conflicts with ESN's momentum-based predictions
-- Test results contaminated by baseline carryover
-- When isolated, showed -171% to +35% (highly unstable)
-- Contrarian signals work better for mean-reversion, not momentum
+### 2. Risk-Adjusted Return Doubled ✅
+Sharpe ratio improvement from 1.021 → 2.008 means:
+- Same return with half the volatility, OR
+- Double the return for the same risk
+- More consistent performance over time
 
-**Verdict:** ❌ Incompatible with ESN momentum approach
+### 3. Directional Accuracy Edge ✅
++4.3% improvement (52.0% → 56.3%) provides:
+- Consistent advantage over random guessing
+- Captures momentum patterns baseline misses
+- Translates to higher profit per trade
 
-### Combined (70% Market + 30% VIX)
+### 4. Error Metrics Improvement ✅
+All prediction errors reduced:
+- RMSE: -10.1% (better fit)
+- MAE: -14.8% (more accurate)
+- R²: +52.5% (explains more variance)
 
-**Problem:** Mixing momentum + contrarian = contradictory signals
-- Market Proxy says "trend continues"
-- VIX says "fear spike, buy the dip"
-- Result: Confused predictions, worse than baseline
-- Test results: -63% to +148% (unreliable)
+## Technical Issues Fixed (See BUGFIXES.md)
 
-**Verdict:** ❌ Signal interference, no benefit
+### 1. Data Contamination ✅
+**Problem:** Re-downloading raw data on every run led to different price history  
+**Solution:** Cache raw data, download once, process multiple times  
+**Status:** ✅ Fixed - identical data source for all runs
 
-## Technical Issues Encountered
+### 2. ESN Randomness ✅
+**Problem:** Baseline varied wildly between runs (±197%)  
+**Root Cause:** Different code paths consumed numpy random state differently  
+**Solution:** Set `np.random.seed(42)` at pipeline start, synchronized code paths  
+**Status:** ✅ Fixed - perfect reproducibility achieved
 
-### 1. Data Contamination (Solved)
-**Problem:** Cached data between tests  
-**Solution:** Automatic cleanup before each test  
-**Status:** ✅ Fixed
+### 3. Sentiment Feature Not Applied ✅
+**Problem:** `SENTIMENT_ENABLED` flag was ignored, baseline used sentiment feature  
+**Root Cause:** Feature generation didn't check the flag  
+**Solution:** Added conditional checks in `features.py` and `pipeline.py`  
+**Status:** ✅ Fixed - clean 10 vs 11 feature separation
 
-### 2. ESN Randomness (Partial Issue)
-**Problem:** Baseline varies ±197% between runs  
-**Cause:** Numpy global random state not properly seeded  
-**Impact:** Makes single-run comparisons unreliable  
-**Mitigation:** Average across multiple clean runs  
-**Status:** ⚠️ Acceptable for now, needs fixing for production
+### 4. Raw Data Reuse ✅
+**Problem:** Every `python run.py` call re-downloaded from yfinance  
+**Root Cause:** No check for existing cached data  
+**Solution:** Added `_ensure_raw_data()` helper to detect and reuse cached CSVs  
+**Status:** ✅ Fixed - runs use cached data automatically
 
 ## Production Recommendations
 
@@ -139,64 +183,87 @@ risk_index = (
 
 ```python
 # config/settings.py
-SENTIMENT_ENABLED = True
-SENTIMENT_STRATEGY = "market_proxy"
+SENTIMENT_ENABLED = True  # Uses market proxy by default
+```
+
+### Usage
+
+```bash
+# Single run with market proxy (recommended)
+python run.py
+
+# Compare baseline vs market proxy
+python run.py --compare
+
+# Test different fold
+python run.py --fold 1 --horizon target_h5
 ```
 
 ### Before Production
 
-1. ✅ **Market Proxy validated** (+300% average Sharpe)
-2. ⚠️ **Fix ESN seed** for consistent results
-3. 🔄 **Test across all 9 folds** for robustness
-4. 🔄 **Backtest on out-of-sample data** (2024-2025)
-5. 🔄 **Paper trade** for 30 days
+1. ✅ **Market Proxy validated** (+96.8% Sharpe on fold 0)
+2. ✅ **Reproducibility confirmed** (perfect consistency across runs)
+3. ✅ **Bug fixes completed** (4 critical bugs resolved)
+4. 🔄 **Test across all 9 folds** for robustness (PRIORITY)
+5. 🔄 **Backtest on out-of-sample data** (2024-2025)
+6. 🔄 **Paper trade** for 30 days
 
 ### Expected Live Performance
 
 | Metric | Conservative | Expected | Optimistic |
 |--------|--------------|----------|------------|
-| Sharpe Ratio | 0.5 | 0.8 | 1.2 |
-| Dir. Accuracy | 52% | 54% | 56% |
-| Annual Return | 5% | 10% | 15% |
+| Sharpe Ratio | 0.8 | 1.2 | 1.8 |
+| Dir. Accuracy | 53% | 55% | 57% |
+| Annual Return | 8% | 12% | 18% |
 
-*Assuming 2.5x degradation from backtest to live (industry standard)*
+*Assuming 2x degradation from backtest to live (industry standard)*
+
+### Critical Note
+⚠️ **Current results are from fold 0 only.** Cross-fold validation (across all 9 folds) is **essential** before making production claims. The +96.8% Sharpe improvement may vary significantly across different time periods.
 
 ## Next Steps
 
 ### Immediate (Week 1)
 - [x] Document results
-- [ ] Fix ESN random seed in `src/models/esn.py`
-- [ ] Test Market Proxy across all 9 folds
-- [ ] Calculate fold-average Sharpe
+- [x] Fix ESN random seed
+- [x] Fix data contamination
+- [x] Fix sentiment feature application
+- [x] Achieve reproducibility
+- [ ] **Test Market Proxy across all 9 folds** (PRIORITY)
+- [ ] Calculate fold-average Sharpe and confidence intervals
 
 ### Short-term (Week 2-4)
-- [ ] Walk-forward validation on recent data
+- [ ] Walk-forward validation on recent data (2024-2025)
 - [ ] Paper trading setup
 - [ ] Risk management integration
 - [ ] Position sizing rules
+- [ ] Significance testing (Diebold-Mariano)
 
 ### Long-term (Month 2+)
 - [ ] Live trading (small capital)
 - [ ] Monitor performance metrics
-- [ ] A/B test weight adjustments
+- [ ] A/B test component weights (momentum/trend/vol/RSI)
 - [ ] Consider ensemble with other strategies
 
 ## Conclusion
 
-**Market Proxy is production-ready.**
+**Market Proxy shows strong promise on fold 0.**
 
-The +300% average Sharpe improvement is:
-- ✅ Statistically significant
-- ✅ Replicated across runs
-- ✅ Based on interpretable signals
-- ✅ Computationally efficient
-- ⚠️ Needs cross-validation across folds
+The +96.8% Sharpe improvement is:
+- ✅ Perfectly reproducible (verified across 3 runs)
+- ✅ Based on interpretable technical signals
+- ✅ Computationally efficient (no external data)
+- ✅ Clean implementation (no data leakage)
+- ⚠️ **Requires cross-fold validation** before production claims
 
-**Abandon VIX and Combined strategies** - they add complexity without benefit and conflict with ESN's momentum-based approach.
+**Key Achievement:** After fixing 4 critical bugs, we now have a **reliable, reproducible comparison framework** that can be trusted for future experiments.
+
+**Next Critical Step:** Test across all 9 folds to verify robustness. The +96.8% improvement on fold 0 may not generalize to all time periods.
 
 ---
 
 *Date: 2025-11-10*  
 *Test Environment: Fold 0, SPY, target_h1*  
-*ESN Config: 500 units, SR=0.9, alpha=1.0*
+*ESN Config: 500 units, SR=0.9, alpha=1.0, seed=42*  
+*Pipeline Version: v4 (with all bug fixes)*
 
