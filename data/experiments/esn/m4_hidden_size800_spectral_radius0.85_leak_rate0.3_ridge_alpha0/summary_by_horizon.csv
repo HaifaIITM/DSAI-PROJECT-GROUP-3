@@ -1,4 +1,4 @@
 ,rmse,rmse,mae,mae,r2,r2,dir_acc,dir_acc,avg_daily_pnl,avg_daily_pnl,vol,vol,sharpe,sharpe,hit_ratio,hit_ratio,turnover,turnover
 ,mean,std,mean,std,mean,std,mean,std,mean,std,mean,std,mean,std,mean,std,mean,std
 horizon,,,,,,,,,,,,,,,,,,
-target_h1,0.02079249925760655,,0.01731025594976209,,-5.255434853436571,,0.4722222222222222,,-5.8514871602009347e-05,,0.008330734330779127,,-0.112,,0.472,,0.274,
+target_h1,0.014547979170585782,,0.011011127417495497,,-2.6646004627818702,,0.5238095238095238,,0.00026890004748629623,,0.0076418035475365,,0.559,,0.524,,0.329,

@@ -3,15 +3,15 @@
   "exp_id": "m4_hidden_size800_spectral_radius0.85_leak_rate0.3_ridge_alpha3",
   "fold": 0,
   "horizon": "target_h1",
-  "rmse": 0.01758971236253471,
-  "mae": 0.01475458578611777,
-  "r2": -3.476737107707571,
-  "dir_acc": 0.5,
+  "rmse": 0.010413772068250459,
+  "mae": 0.007874782140262614,
+  "r2": -0.8777485123729505,
+  "dir_acc": 0.503968253968254,
   "backtest": {
-    "avg_daily_pnl": 3.509533594615819e-05,
-    "vol": 0.008329546850794968,
-    "sharpe": 0.067,
-    "hit_ratio": 0.5,
-    "turnover": 0.194
+    "avg_daily_pnl": 0.0003707262288940363,
+    "vol": 0.00763337987181458,
+    "sharpe": 0.771,
+    "hit_ratio": 0.504,
+    "turnover": 0.329
   }
 }
