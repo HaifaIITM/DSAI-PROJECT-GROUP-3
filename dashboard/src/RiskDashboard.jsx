@@ -84,7 +84,7 @@ export default function RiskDashboard() {
             <div
               key={idx}
               className={`max-w-[80%] p-3 rounded-xl ${
-                m.sender === "user" ? "bg-blue-600 self-end" : "bg-green-600 self-start"
+                m.sender === "user" ? "bg-blue-600 self-end ml-auto" : "bg-green-600 self-start"
               }`}
             >
               {m.text}
