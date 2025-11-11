@@ -5,4 +5,6 @@ scikit-learn
 matplotlib
 jupyter
 torch
+sentence-transformers
+tqdm
 

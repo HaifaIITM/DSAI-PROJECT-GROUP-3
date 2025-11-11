@@ -31,11 +31,15 @@ def _find_latest_raw(prefix: str) -> str:
 
 def run_process() -> Dict[str, str]:
     ensure_dir(PROC_DIR)
+    # Check if headlines CSV exists in project root
+    from config.settings import HEADLINES_CSV
+    headlines_path = HEADLINES_CSV if os.path.exists(HEADLINES_CSV) else None
+    
     # Always generate GSPC & ANCHOR_TICKER features so we can intersect if needed
     gspc_raw = _find_latest_raw("GSPC")
     anchor_raw = _find_latest_raw(ANCHOR_TICKER)
-    gspc_out = process_and_save(gspc_raw, "GSPC", PROC_DIR)
-    anchor_out = process_and_save(anchor_raw, ANCHOR_TICKER, PROC_DIR)
+    gspc_out = process_and_save(gspc_raw, "GSPC", PROC_DIR, headlines_csv=headlines_path)
+    anchor_out = process_and_save(anchor_raw, ANCHOR_TICKER, PROC_DIR, headlines_csv=headlines_path)
     return {"GSPC": gspc_out, ANCHOR_TICKER: anchor_out}
 
 def _read_proc(path: str) -> pd.DataFrame:
@@ -79,7 +83,16 @@ def run_materialize_folds(proc_paths: Dict[str, str], folds: List[Dict]) -> None
         materialize_fold(anchor, FEATURE_COLS, TARGET_COLS, fold, fold_dir)
 
 # --------- TRAIN / EVAL (single fold) ---------
-def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1") -> Dict:
+def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1", save_model: bool = False) -> Dict:
+    """
+    Train and evaluate a single model on one fold.
+    
+    Args:
+        model_name: Name of model to train
+        fold_id: Fold number
+        horizon: Target horizon (target_h1, target_h5, target_h20)
+        save_model: If True, save the trained model to disk (for models with save() method)
+    """
     fold_dir = os.path.join(SPLIT_DIR, f"fold_{fold_id}")
     train = pd.read_csv(os.path.join(fold_dir, "train.csv"), index_col=0, parse_dates=True)
     test  = pd.read_csv(os.path.join(fold_dir, "test.csv"),  index_col=0, parse_dates=True)
@@ -104,4 +117,10 @@ def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1") -> D
     b = sign_backtest(y_te, y_hat, cost_per_trade=0.0001)
     result = dict(model=model_name, fold=fold_id, horizon=horizon, **m, backtest=b)
     save_json(result, os.path.join(exp_dir, f"metrics_{horizon}.json"))
+    
+    # Save trained model if requested and supported
+    if save_model and hasattr(model, 'save'):
+        model_dir = os.path.join(exp_dir, f"model_{horizon}")
+        model.save(model_dir)
+    
     return result

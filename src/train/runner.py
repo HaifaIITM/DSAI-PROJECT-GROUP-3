@@ -17,10 +17,18 @@ def _load_fold(fold_id: int):
     X_te = test [[c for c in test.columns if c.startswith("z_")]].values
     return train, test, X_tr, X_te, fold_dir
 
-def run_experiment(model_name: str, fold_id: int, horizon: str, model_kwargs: dict, exp_name: str | None = None) -> dict:
+def run_experiment(model_name: str, fold_id: int, horizon: str, model_kwargs: dict, exp_name: str | None = None, save_model: bool = False) -> dict:
     """
     Train one model on one fold/horizon with given hyperparams.
     Saves preds/metrics under: data/experiments/<model>/<exp_id>/fold_<k>/
+    
+    Args:
+        model_name: Name of model to train
+        fold_id: Fold number
+        horizon: Target horizon (target_h1, target_h5, target_h20)
+        model_kwargs: Hyperparameters for the model
+        exp_name: Optional experiment name
+        save_model: If True, save the trained model to disk (for models with save() method)
     """
     set_seed(model_kwargs.get("seed", 0))
     train, test, X_tr, X_te, _ = _load_fold(fold_id)
@@ -47,6 +55,12 @@ def run_experiment(model_name: str, fold_id: int, horizon: str, model_kwargs: di
 
     with open(os.path.join(out_dir, f"metrics_{horizon}.json"), "w") as f:
         json.dump(result, f, indent=2)
+    
+    # Save trained model if requested and supported
+    if save_model and hasattr(model, 'save'):
+        model_dir = os.path.join(out_dir, f"model_{horizon}")
+        model.save(model_dir)
+    
     return result
 
 def run_sweep(model_name: str, param_grid: dict, folds, horizons, exp_prefix: str | None = None) -> pd.DataFrame:
