@@ -400,21 +400,22 @@ This repository is for **education/research only** and not investment advice. Ba
 3. Jaeger, H., et al. (2007): *Optimization and applications of echo state networks with leaky-integrator neurons*
 
 **State-Space Models**:
+
 4. Durbin, J., & Koopman, S. (2012): *Time Series Analysis by State Space Methods*
 5. Gu, A., et al. (2021): *Efficiently Modeling Long Sequences with Structured State Spaces* (S4)
 
 **Financial Forecasting**:
+
 6. Hyndman, R., & Athanasopoulos, G.: *Forecasting: Principles and Practice*
 7. Gneiting, T., & Raftery, A. (2007): *Strictly proper scoring rules, prediction, and estimation*
 8. Bailey, D., et al. (2014): *The Probability of Backtest Overfitting*
 
 **News Sentiment & Embeddings**:
-9. Qayyum, A. (2025): *News Sentiment Embeddings for Stock Price Forecasting*, arXiv:2507.01970. [Link](https://arxiv.org/pdf/2507.01970)
-   - Uses WSJ headlines with OpenAI embeddings + PCA for SPY prediction
-   - Shows 40% improvement with headline data vs technical indicators alone
-   - Similar methodology to our FinBERT + PCA approach
+
+9. Qayyum, A. (2025): *News Sentiment Embeddings for Stock Price Forecasting*
 
 **Deep Learning Baselines**:
+
 10. Hochreiter, S., & Schmidhuber, J. (1997): *Long short-term memory*
 11. Vaswani, A., et al. (2017): *Attention is all you need*
 12. Bai, S., et al. (2018): *An empirical evaluation of generic convolutional and recurrent networks for sequence modeling*
