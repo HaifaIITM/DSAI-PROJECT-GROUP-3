@@ -12,7 +12,10 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-sys.path.append(os.getcwd())
+
+# Add project root to path (script is in scripts/evaluation/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 from src.models.hybrid_esn_ridge import HybridESNRidge
 from src.eval.metrics import evaluate_predictions, sign_backtest
@@ -173,7 +176,7 @@ def predict_weighted_ensemble(models, X_test, y_test, test_index, weights=None):
     # If no weights provided, use uniform
     if weights is None:
         # Load results to get Sharpe ratios
-        results_file = "hybrid_all_folds_all_horizons_results.csv"
+        results_file = os.path.join(project_root, "docs", "results", "hybrid_all_folds_all_horizons_results.csv")
         if os.path.exists(results_file):
             results_df = pd.read_csv(results_file)
             
@@ -267,7 +270,10 @@ def compare_strategies(test_fold=0, test_horizon="target_h20"):
     for name, preds in results.items():
         output_df[f'pred_{name}'] = preds
     
-    output_file = f"all_strategies_predictions_fold{test_fold}_{test_horizon}.csv"
+    # Save to docs/results/
+    output_dir = os.path.join(project_root, "docs", "results")
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"all_strategies_predictions_fold{test_fold}_{test_horizon}.csv")
     output_df.to_csv(output_file)
     print(f"\n[OK] All predictions saved to: {output_file}")
 

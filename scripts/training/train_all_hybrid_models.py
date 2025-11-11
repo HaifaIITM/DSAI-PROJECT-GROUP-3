@@ -13,7 +13,10 @@ import sys
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-sys.path.append(os.getcwd())
+
+# Add project root to path (script is in scripts/training/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 from config import settings
 from src.pipeline import run_baseline
@@ -158,8 +161,10 @@ def analyze_results(results_df):
     print(f"\nBest Dir Accuracy: {best_dir['dir_acc']:.1%}")
     print(f"  → Fold {int(best_dir['fold'])}, {best_dir['horizon']}")
     
-    # Save results
-    output_file = "hybrid_all_folds_all_horizons_results.csv"
+    # Save results to docs/results/
+    output_dir = os.path.join(project_root, "docs", "results")
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, "hybrid_all_folds_all_horizons_results.csv")
     results_df.to_csv(output_file, index=False)
     print(f"\n[OK] Detailed results saved to: {output_file}")
     
@@ -182,7 +187,7 @@ if __name__ == "__main__":
     print("\n" + "="*80)
     print("NEXT STEPS")
     print("="*80)
-    print("1. View detailed results: hybrid_all_folds_all_horizons_results.csv")
+    print("1. View detailed results: docs/results/hybrid_all_folds_all_horizons_results.csv")
     print("2. Load any model:")
     print("   from src.models.hybrid_esn_ridge import HybridESNRidge")
     print("   model = HybridESNRidge.load('data/experiments/hybrid/fold_X/model_target_hY')")

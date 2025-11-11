@@ -8,7 +8,10 @@ Achieves Sharpe 6.267, R² -0.372, RMSE 0.028, Dir_acc 67.1% at h20 horizon.
 import os
 import sys
 import pandas as pd
-sys.path.append(os.getcwd())
+
+# Add project root to path (script is in scripts/evaluation/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 from config import settings
 from src.pipeline import run_baseline
@@ -111,8 +114,10 @@ def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20", save_model: b
     if hybrid_result['rmse'] <= best_rmse:
         print("[BEST] RMSE (forecast accuracy)")
     
-    # Save results
-    output_file = f"hybrid_evaluation_fold{fold_id}_{horizon}.csv"
+    # Save results to docs/results/
+    output_dir = os.path.join(project_root, "docs", "results")
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"hybrid_evaluation_fold{fold_id}_{horizon}.csv")
     df.to_csv(output_file, index=False)
     print(f"\n[OK] Results saved to: {output_file}")
     

@@ -12,7 +12,10 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-sys.path.append(os.getcwd())
+
+# Add project root to path (script is in scripts/evaluation/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 from src.models.hybrid_esn_ridge import HybridESNRidge
 from src.eval.metrics import evaluate_predictions, sign_backtest
@@ -83,8 +86,10 @@ def load_and_predict(fold_id: int = 0, horizon: str = "target_h20"):
     print(f"  Hit Ratio:   {backtest['hit_ratio']:.1%}")
     print(f"  Turnover:    {backtest['turnover']:.3f}")
     
-    # Save predictions
-    output_file = f"loaded_model_predictions_fold{fold_id}_{horizon}.csv"
+    # Save predictions to docs/results/
+    output_dir = os.path.join(project_root, "docs", "results")
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"loaded_model_predictions_fold{fold_id}_{horizon}.csv")
     preds_df = pd.DataFrame({
         "y_true": y_te,
         "y_pred": y_pred

@@ -7,7 +7,9 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-sys.path.append(os.getcwd())  # allow src/* and config/* imports when run directly
+# Add project root to path (script is in scripts/training/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 import matplotlib.pyplot as plt
 import numpy as np

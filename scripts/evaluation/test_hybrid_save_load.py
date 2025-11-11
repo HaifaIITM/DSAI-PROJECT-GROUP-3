@@ -7,7 +7,10 @@ import sys
 import numpy as np
 import tempfile
 import shutil
-sys.path.append(os.getcwd())
+
+# Add project root to path (script is in scripts/evaluation/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 from src.models.hybrid_esn_ridge import HybridESNRidge
 
