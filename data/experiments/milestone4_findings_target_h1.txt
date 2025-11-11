@@ -2,16 +2,16 @@
 
 ## Best by RMSE (per model)
 
-- **esn**  | RMSE=0.009602, MAE=0.007450, R²=-0.334, DirAcc=0.552  | exp_id=m4_hidden_size400_spectral_radius0.95_leak_rate1.0_ridge_alpha3
-- **lstm**  | RMSE=0.008350, MAE=0.005930, R²=-0.009, DirAcc=0.579  | exp_id=m4_seq_len64_hidden128_epochs15_e5f4a4a7
-- **transformer**  | RMSE=0.013014, MAE=0.010305, R²=-1.450, DirAcc=0.468  | exp_id=m4_seq_len32_d_model128_epochs15_341648fd
-- **tcn**  | RMSE=0.010806, MAE=0.008321, R²=-0.690, DirAcc=0.508  | exp_id=m4_seq_len32_channels64_128_epochs15_3889c8ee
+- **esn**  | RMSE=0.008571, MAE=0.006376, R²=-0.272, DirAcc=0.472  | exp_id=m4_hidden_size400_spectral_radius0.85_leak_rate0.3_ridge_alpha3
+- **lstm**  | RMSE=0.007558, MAE=0.005351, R²=0.011, DirAcc=0.548  | exp_id=m4_seq_len32_hidden128_epochs15_510c6a10
+- **transformer**  | RMSE=0.009738, MAE=0.007630, R²=-0.642, DirAcc=0.548  | exp_id=m4_seq_len32_d_model128_epochs15_341648fd
+- **tcn**  | RMSE=0.008731, MAE=0.006356, R²=-0.320, DirAcc=0.528  | exp_id=m4_seq_len64_channels64_128_epochs15_5289c1cb
 
 ## Best by Sharpe (per model)
 
-- **esn**  | Sharpe=1.664, PnL=0.000867, Turnover=0.956, DirAcc=0.552  | RMSE=0.009602  | exp_id=m4_hidden_size400_spectral_radius0.95_leak_rate1.0_ridge_alpha3
-- **lstm**  | Sharpe=1.679, PnL=0.000876, Turnover=0.337, DirAcc=0.579  | RMSE=0.008350  | exp_id=m4_seq_len32_hidden128_epochs15_73029574
-- **transformer**  | Sharpe=0.298, PnL=0.000156, Turnover=0.345, DirAcc=0.484  | RMSE=0.015712  | exp_id=m4_seq_len64_d_model128_epochs15_09dfabeb
-- **tcn**  | Sharpe=2.079, PnL=0.001080, Turnover=0.790, DirAcc=0.575  | RMSE=0.013193  | exp_id=m4_seq_len64_channels64_64_epochs15_164c7418
+- **esn**  | Sharpe=1.212, PnL=0.000581, Turnover=1.083, DirAcc=0.484  | RMSE=0.019996  | exp_id=m4_38feat_hidden_size1600_spectral_radius0.95_leak_rate1.0_ridge_alpha
+- **lstm**  | Sharpe=1.299, PnL=0.000623, Turnover=0.544, DirAcc=0.548  | RMSE=0.007558  | exp_id=m4_seq_len32_hidden128_epochs15_510c6a10
+- **transformer**  | Sharpe=0.954, PnL=0.000458, Turnover=0.353, DirAcc=0.548  | RMSE=0.009738  | exp_id=m4_seq_len32_d_model128_epochs15_341648fd
+- **tcn**  | Sharpe=1.321, PnL=0.000634, Turnover=0.687, DirAcc=0.548  | RMSE=0.011666  | exp_id=m4_seq_len32_channels64_64_epochs15_7378a409
 
 **Bottom line:** For trading (Sharpe), **tcn** looks best. For pure magnitude accuracy (RMSE), refer to the RMSE table above.

@@ -83,7 +83,16 @@ def run_materialize_folds(proc_paths: Dict[str, str], folds: List[Dict]) -> None
         materialize_fold(anchor, FEATURE_COLS, TARGET_COLS, fold, fold_dir)
 
 # --------- TRAIN / EVAL (single fold) ---------
-def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1") -> Dict:
+def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1", save_model: bool = False) -> Dict:
+    """
+    Train and evaluate a single model on one fold.
+    
+    Args:
+        model_name: Name of model to train
+        fold_id: Fold number
+        horizon: Target horizon (target_h1, target_h5, target_h20)
+        save_model: If True, save the trained model to disk (for models with save() method)
+    """
     fold_dir = os.path.join(SPLIT_DIR, f"fold_{fold_id}")
     train = pd.read_csv(os.path.join(fold_dir, "train.csv"), index_col=0, parse_dates=True)
     test  = pd.read_csv(os.path.join(fold_dir, "test.csv"),  index_col=0, parse_dates=True)
@@ -108,4 +117,10 @@ def run_baseline(model_name: str, fold_id: int, horizon: str = "target_h1") -> D
     b = sign_backtest(y_te, y_hat, cost_per_trade=0.0001)
     result = dict(model=model_name, fold=fold_id, horizon=horizon, **m, backtest=b)
     save_json(result, os.path.join(exp_dir, f"metrics_{horizon}.json"))
+    
+    # Save trained model if requested and supported
+    if save_model and hasattr(model, 'save'):
+        model_dir = os.path.join(exp_dir, f"model_{horizon}")
+        model.save(model_dir)
+    
     return result

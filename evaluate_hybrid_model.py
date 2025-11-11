@@ -14,13 +14,14 @@ from config import settings
 from src.pipeline import run_baseline
 
 
-def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20"):
+def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20", save_model: bool = True):
     """
     Evaluate hybrid model and compare with baselines.
     
     Args:
         fold_id: Fold number to evaluate
         horizon: Target horizon (target_h1, target_h5, or target_h20)
+        save_model: If True, save the trained model to disk
     """
     # Ensure we're using 38 features
     settings.FEATURE_COLS = settings.FEATURE_COLS_FULL
@@ -31,6 +32,7 @@ def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20"):
     print(f"Fold: {fold_id}")
     print(f"Horizon: {horizon}")
     print(f"Features: {len(settings.FEATURE_COLS)} (10 technical + 28 headline embeddings)")
+    print(f"Save Model: {save_model}")
     print()
     
     # Run hybrid model
@@ -38,7 +40,8 @@ def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20"):
     hybrid_result = run_baseline(
         model_name="hybrid",
         fold_id=fold_id,
-        horizon=horizon
+        horizon=horizon,
+        save_model=save_model
     )
     
     print("\n" + "="*80)
@@ -113,19 +116,42 @@ def evaluate_hybrid(fold_id: int = 0, horizon: str = "target_h20"):
     df.to_csv(output_file, index=False)
     print(f"\n[OK] Results saved to: {output_file}")
     
-    return hybrid_result
+    return hybrid_result, df, baselines
 
 
 if __name__ == "__main__":
-    # Evaluate on fold 0, h20 (best performance)
-    result = evaluate_hybrid(fold_id=0, horizon="target_h20")
+    # Evaluate on fold 0, h20 (best performance) and save model
+    hybrid_result, df, baselines = evaluate_hybrid(fold_id=0, horizon="target_h20", save_model=True)
     
     print("\n" + "="*80)
     print("RECOMMENDATION")
     print("="*80)
-    print("Use HybridESNRidge for h20 (20-day ahead) predictions:")
-    print("  - Highest Sharpe across all models (6.267)")
-    print("  - Best magnitude prediction (R² -0.372 vs ESN -14.48)")
-    print("  - 67% directional accuracy")
-    print("  - Low turnover (0.131) = stable signals")
+    
+    # Compare hybrid with best baseline
+    best_baseline_sharpe = df[df['model'] != 'Hybrid']['sharpe'].max()
+    best_baseline_model = df[df['sharpe'] == best_baseline_sharpe]['model'].values[0]
+    
+    hybrid_sharpe = hybrid_result['backtest']['sharpe']
+    hybrid_turnover = hybrid_result['backtest']['turnover']
+    
+    if hybrid_sharpe >= best_baseline_sharpe:
+        print(f"[WINNER] Hybrid ESN-Ridge is the BEST model:")
+        print(f"  Sharpe: {hybrid_sharpe:.3f} (beats {best_baseline_model}: {best_baseline_sharpe:.3f})")
+    else:
+        print(f"[WINNER] {best_baseline_model} is the BEST model:")
+        print(f"  Sharpe: {best_baseline_sharpe:.3f} (vs Hybrid: {hybrid_sharpe:.3f})")
+        print(f"\n[ALTERNATIVE] Hybrid ESN-Ridge advantages:")
+    
+    print(f"  R²: {hybrid_result['r2']:.3f}")
+    print(f"  RMSE: {hybrid_result['rmse']:.3f}")
+    print(f"  Dir Accuracy: {hybrid_result['dir_acc']*100:.1f}%")
+    print(f"  Turnover: {hybrid_turnover:.3f} (ultra-low = most stable)")
+    print(f"\n[IMPROVEMENT] Hybrid vs baseline ESN:")
+    
+    esn_result = baselines['ESN']
+    sharpe_change = (hybrid_sharpe - esn_result['backtest']['sharpe']) / abs(esn_result['backtest']['sharpe']) * 100
+    r2_improvement = abs(esn_result['r2']) / abs(hybrid_result['r2'])
+    
+    print(f"  Sharpe: {hybrid_sharpe:.3f} vs {esn_result['backtest']['sharpe']:.3f} ({sharpe_change:+.0f}% change)")
+    print(f"  R²: {hybrid_result['r2']:.3f} vs {esn_result['r2']:.3f} ({r2_improvement:.1f}× better magnitude)")
 
