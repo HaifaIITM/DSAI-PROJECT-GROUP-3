@@ -214,10 +214,16 @@ def fetch_spy_data(days_back: int = 90) -> pd.DataFrame:
     return df
 
 
-def fetch_spy_news(days_back: int = 3) -> List[Dict[str, Any]]:
+def fetch_spy_news(days_back: int = 3, storage=None) -> List[Dict[str, Any]]:
     """
-    Fetch recent SPY news from yfinance.
-    Returns list of news items for last N days.
+    Fetch recent SPY news from yfinance and optionally save to storage.
+    
+    Args:
+        days_back: Number of days to look back
+        storage: Optional DataStorage instance to save headlines
+    
+    Returns:
+        List of news items for last N days
     """
     try:
         ticker = yf.Ticker("SPY")
@@ -243,12 +249,18 @@ def fetch_spy_news(days_back: int = 3) -> List[Dict[str, Any]]:
                     pub_time = dt.timestamp()
                     
                     if pub_time >= cutoff_timestamp:
-                        recent_news.append({
+                        news_item = {
                             'date': dt.strftime('%Y-%m-%d %H:%M'),
                             'title': content.get('title', 'No title'),
                             'publisher': content.get('provider', {}).get('displayName', 'Unknown'),
                             'link': content.get('canonicalUrl', {}).get('url', '#')
-                        })
+                        }
+                        recent_news.append(news_item)
+                        
+                        # Save to storage if provided
+                        if storage:
+                            storage.save_headline(news_item)
+                
                 except Exception as e:
                     print(f"Error parsing news date: {e}")
                     continue
@@ -326,8 +338,9 @@ def prepare_headlines_csv_from_news(
 def prepare_features_for_prediction(
     df: pd.DataFrame,
     headlines_csv: Optional[str] = None,
-    use_headlines: bool = True
-) -> Tuple[np.ndarray, pd.DatetimeIndex]:
+    use_headlines: bool = True,
+    return_intermediates: bool = False
+) -> Tuple[np.ndarray, pd.DatetimeIndex, Optional[Dict[str, Any]]]:
     """
     Complete feature preparation pipeline matching training process.
     
@@ -342,17 +355,20 @@ def prepare_features_for_prediction(
         df: DataFrame with OHLCV data (must have enough history for indicators)
         headlines_csv: Optional path to headlines CSV file
         use_headlines: If True, attempt to compute headline features
+        return_intermediates: If True, return intermediate data (embeddings, etc.)
     
     Returns:
-        Tuple of (normalized feature matrix, corresponding dates)
+        Tuple of (normalized feature matrix, corresponding dates, intermediates)
         - Feature matrix: (n_samples, 38 features) in FEATURE_COLS_FULL order
         - Dates: DatetimeIndex corresponding to each row in feature matrix
+        - Intermediates: Dict with embeddings and other intermediate data (if return_intermediates=True)
     """
     # Step 1: Compute technical features
     df_features = compute_technical_features(df)
     
     # Step 2: Compute headline embeddings if available
     headline_feats = None
+    raw_embeddings = None
     if use_headlines and compute_headline_features is not None:
         try:
             # Try to use provided headlines CSV
@@ -434,6 +450,15 @@ def prepare_features_for_prediction(
     # Step 5: Normalize features (rolling z-score, 252-day window)
     X_normalized = normalize_features(df_features, FEATURE_COLS_FULL)
     
-    # Step 6: Return features and corresponding dates
-    # (normalize_features already returns in FEATURE_COLS_FULL order)
-    return X_normalized, df_features.index
+    # Step 6: Prepare return values
+    intermediates = None
+    if return_intermediates:
+        intermediates = {
+            "headline_features": headline_feats.values if headline_feats is not None else None,
+            "headline_feature_names": list(headline_feats.columns) if headline_feats is not None else None,
+            "raw_embeddings": raw_embeddings,
+            "feature_names": FEATURE_COLS_FULL
+        }
+    
+    # Return features and corresponding dates (and intermediates if requested)
+    return X_normalized, df_features.index, intermediates

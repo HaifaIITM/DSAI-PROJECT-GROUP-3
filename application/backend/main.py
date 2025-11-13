@@ -26,8 +26,12 @@ from production_predictor import ProductionPredictor
 from util import (
     fetch_spy_data,
     fetch_spy_news,
-    prepare_features_for_prediction
+    prepare_features_for_prediction,
+    SMALL_MODEL,
+    LARGE_MODEL,
+    FEATURE_COLS_FULL
 )
+from storage import DataStorage
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -47,6 +51,9 @@ app.add_middleware(
 
 # Global predictor (loaded once at startup)
 predictor = None
+
+# Global storage instance
+storage = DataStorage()
 
 
 # Response models
@@ -118,18 +125,28 @@ async def get_predictions():
         except ValueError as e:
             raise HTTPException(status_code=500, detail=str(e))
         
-        # 2. Prepare features using complete pipeline (matches training process)
-        print("Preparing features (technical + headlines)...")
-        try:
-            # Check if headlines CSV exists in project root
+        # 2. Fetch and store recent news headlines
+        print("Fetching and storing news headlines...")
+        recent_news = fetch_spy_news(days_back=3, storage=storage)
+        saved_count = storage.save_headlines_batch(recent_news)
+        print(f"Saved {saved_count} new headlines to storage")
+        
+        # Use stored headlines CSV for feature preparation
+        headlines_csv = storage.get_headlines_csv_path()
+        if not os.path.exists(headlines_csv):
+            # Fallback to project root headlines CSV
             headlines_csv = os.path.join(project_root, "data", "spy_news.csv")
             if not os.path.exists(headlines_csv):
                 headlines_csv = None
-            
-            X_features, feature_dates = prepare_features_for_prediction(
+        
+        # 3. Prepare features using complete pipeline (matches training process)
+        print("Preparing features (technical + headlines)...")
+        try:
+            X_features, feature_dates, intermediates = prepare_features_for_prediction(
                 df=df,
                 headlines_csv=headlines_csv,
-                use_headlines=True
+                use_headlines=True,
+                return_intermediates=True
             )
         except Exception as e:
             print(f"Error in feature preparation: {e}")
@@ -138,11 +155,11 @@ async def get_predictions():
                 detail=f"Feature preparation error: {str(e)}"
             )
         
-        # 3. Generate predictions for all horizons
+        # 4. Generate predictions for all horizons
         print("Generating predictions...")
         predictions_all = predictor.predict_all(X_features)
         
-        # 4. Get last 30 days
+        # 5. Get last 30 days
         last_30_days = min(30, len(X_features))
         
         # Get dates and prices for last 30 days
@@ -171,9 +188,52 @@ async def get_predictions():
                 "actual_close": float(recent_prices[i])
             })
         
-        # 7. Fetch recent news (last 3 days)
-        print("Fetching recent news...")
-        news = fetch_spy_news(days_back=3)
+        # 6. Store predictions, embeddings, and features
+        print("Storing predictions, embeddings, and features...")
+        
+        # Store predictions
+        prediction_metadata = {
+            "symbol": "SPY",
+            "model_info": predictor.get_model_info(),
+            "n_samples": len(X_features),
+            "date_range": {
+                "start": str(feature_dates[0]),
+                "end": str(feature_dates[-1])
+            }
+        }
+        storage.save_predictions_batch(predictions_list, metadata=prediction_metadata)
+        
+        # Store embeddings (if available)
+        if intermediates and intermediates.get("headline_features") is not None:
+            headline_embeddings = intermediates["headline_features"]
+            storage.save_embeddings(
+                embeddings=headline_embeddings,
+                dates=feature_dates,
+                metadata={
+                    "embedding_type": "headline_pca",
+                    "feature_names": intermediates.get("headline_feature_names"),
+                    "small_model": SMALL_MODEL,
+                    "large_model": LARGE_MODEL
+                }
+            )
+        
+        # Store final 38 features
+        feature_names = FEATURE_COLS_FULL if intermediates is None else intermediates.get("feature_names", FEATURE_COLS_FULL)
+        storage.save_features(
+            features=X_features,
+            dates=feature_dates,
+            feature_names=feature_names,
+            metadata={
+                "normalization": "rolling_zscore_252d",
+                "n_features": X_features.shape[1],
+                "n_samples": X_features.shape[0]
+            }
+        )
+        
+        print("✓ All data stored successfully")
+        
+        # 7. Get recent news for response (already fetched and stored above)
+        news = recent_news
         
         return {
             "symbol": "SPY",
@@ -192,10 +252,24 @@ async def get_predictions():
 
 
 @app.get("/news")
-async def get_news():
-    """Get recent news for SPY"""
-    news = fetch_spy_news(days_back=2)
-    return news
+async def get_news(days_back: int = 7):
+    """Get stored news headlines for SPY"""
+    df_news = storage.get_headlines(days_back=days_back)
+    
+    if len(df_news) == 0:
+        return []
+    
+    # Convert to list of dicts
+    news_list = []
+    for _, row in df_news.iterrows():
+        news_list.append({
+            "date": row['date'].strftime('%Y-%m-%d %H:%M') if hasattr(row['date'], 'strftime') else str(row['date']),
+            "title": row['title'],
+            "publisher": row.get('publisher', 'Unknown'),
+            "link": row.get('link', '#')
+        })
+    
+    return news_list
 
 
 @app.get("/models/info")
@@ -208,6 +282,12 @@ async def get_model_info():
         "models": predictor.get_model_info(),
         "status": "ready"
     }
+
+
+@app.get("/storage/info")
+async def get_storage_info():
+    """Get information about stored data"""
+    return storage.get_storage_info()
 
 
 if __name__ == "__main__":
