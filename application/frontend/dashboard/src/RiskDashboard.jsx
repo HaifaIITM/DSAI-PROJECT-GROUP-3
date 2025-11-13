@@ -9,6 +9,8 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -22,6 +24,17 @@ const horizonColors = {
   h1: "#60a5fa",
   h5: "#f59e0b",
   h20: "#10b981",
+};
+
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
+const renderMarkdown = (text) => {
+  if (!text) return "";
+  const raw = marked.parse(text);
+  return DOMPurify.sanitize(raw);
 };
 
 export default function RiskDashboard() {
@@ -366,18 +379,21 @@ export default function RiskDashboard() {
             </div>
 
             <div className="flex-1 bg-slate-950/60 border border-slate-800/70 rounded-2xl p-4 overflow-y-auto space-y-3 min-h-0">
-              {messages.map((m, idx) => (
+            {messages.map((m, idx) => {
+              const html = renderMarkdown(m.text);
+              const isUser = m.sender === "user";
+              return (
                 <div
                   key={idx}
-                  className={`max-w-[85%] p-4 rounded-2xl whitespace-pre-line leading-relaxed tracking-wide shadow-md ${
-                    m.sender === "user"
+                  className={`max-w-[85%] p-4 rounded-2xl leading-relaxed tracking-wide shadow-md ${
+                    isUser
                       ? "bg-blue-600/80 border border-blue-400/40 self-end ml-auto"
                       : "bg-emerald-600/20 border border-emerald-400/40 self-start"
                   }`}
-                >
-                  {m.text}
-                </div>
-              ))}
+                  dangerouslySetInnerHTML={{ __html: html }}
+                />
+              );
+            })}
               {!messages.length && (
                 <div className="text-slate-500 text-sm">
                   Ask the assistant for context—e.g., “Summarize today’s h5 outlook with supporting
