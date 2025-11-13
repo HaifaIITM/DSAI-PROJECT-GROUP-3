@@ -71,6 +71,17 @@ DSAI-PROJECT-GROUP-3/
 ├── README.md                     # This file
 ├── requirements.txt              # Python dependencies
 │
+├── application/                  # Full-stack production app (M5)
+│  ├── README.md                  # Application overview
+│  ├── API_GUIDE.md               # Backend usage guide
+│  ├── backend/
+│  │  ├── main.py                 # FastAPI service (predict + news)
+│  │  ├── requirements.txt        # Backend dependencies
+│  │  └── example_usage.py        # API consumer examples
+│  └── frontend/
+│     ├── index.html              # Prediction dashboard
+│     └── README.md               # Frontend usage & deployment
+│
 ├── config/
 │  ├── settings.py                # Tickers, dates, dirs, split sizes, features/targets
 │  └── experiments.py             # Grids, folds, horizons
