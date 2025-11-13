@@ -10,6 +10,8 @@ This application provides:
 - **Real-time Data**: Live SPY data from Yahoo Finance
 - **Multi-horizon Forecasts**: 1-day, 5-day, 20-day predictions
 - **News Integration**: Recent market news and sentiment
+- **Persistent Storage**: Automatic storage of headlines, predictions, embeddings, and features
+- **Data Accumulation**: Headlines accumulate over time (solving yfinance 3-day limitation)
 
 ---
 
@@ -96,8 +98,15 @@ application/
 │
 ├── backend/
 │   ├── main.py                  # FastAPI application
+│   ├── util.py                  # Feature preparation utilities
+│   ├── storage.py               # Data storage module
 │   ├── requirements.txt         # Python dependencies
 │   ├── README.md               # Backend documentation
+│   ├── data/                    # Persistent storage
+│   │   ├── headlines/          # Accumulated news headlines
+│   │   ├── predictions/        # Stored predictions
+│   │   ├── embeddings/          # Headline embeddings
+│   │   └── features/            # Final 38 features
 │   ├── test_api.py             # API tests
 │   ├── example_usage.py        # Usage examples
 │   ├── start.sh                # Linux/Mac startup
@@ -180,6 +189,65 @@ curl http://localhost:8000/models/info
     "h20": {"fold": 3, "sharpe": 6.813}
   },
   "status": "ready"
+}
+```
+
+### GET /news
+
+Get stored news headlines (accumulated over time, not just last 3 days).
+
+```bash
+curl http://localhost:8000/news?days_back=30
+```
+
+**Query Parameters**:
+- `days_back` (optional): Number of days to look back (default: 7)
+
+**Response**:
+```json
+[
+  {
+    "date": "2025-11-09 10:30",
+    "title": "S&P 500 Reaches New High",
+    "publisher": "Reuters",
+    "link": "https://..."
+  },
+  ...
+]
+```
+
+### GET /storage/info
+
+Get information about stored data (headlines, predictions, embeddings, features).
+
+```bash
+curl http://localhost:8000/storage/info
+```
+
+**Response**:
+```json
+{
+  "headlines": {
+    "file": "application/backend/data/headlines/spy_headlines.csv",
+    "exists": true,
+    "count": 150,
+    "date_range": {
+      "start": "2025-10-01",
+      "end": "2025-11-11"
+    }
+  },
+  "predictions": {
+    "directory": "application/backend/data/predictions",
+    "count": 25
+  },
+  "embeddings": {
+    "directory": "application/backend/data/embeddings",
+    "count": 25
+  },
+  "features": {
+    "directory": "application/backend/data/features",
+    "count": 25
+  }
 }
 ```
 
@@ -482,12 +550,62 @@ app.add_middleware(
 
 ---
 
+## Data Storage
+
+The backend automatically stores all data for analysis and debugging:
+
+### Storage Structure
+
+```
+application/backend/data/
+├── headlines/
+│   └── spy_headlines.csv          # Accumulated headlines (grows over time)
+├── predictions/
+│   └── predictions_batch_*.json   # Timestamped predictions with metadata
+├── embeddings/
+│   └── embeddings_*.npz           # Headline embeddings (PCA features)
+└── features/
+    ├── features_*.npz              # Final 38 features (numpy format)
+    └── features_*.csv              # Final 38 features (CSV format)
+```
+
+### What Gets Stored
+
+1. **Headlines**: Automatically saved when fetched from yfinance (accumulates over time)
+2. **Predictions**: Every `/predict` call stores predictions with:
+   - Model metadata (fold, sharpe ratio)
+   - Date ranges
+   - All prediction values (h1, h5, h20)
+3. **Embeddings**: Headline PCA features (28 dimensions) used for predictions
+4. **Features**: Final 38 normalized features used by models
+
+### Accessing Stored Data
+
+```python
+from storage import DataStorage
+
+storage = DataStorage()
+
+# Get headlines from last 30 days
+headlines = storage.get_headlines(days_back=30)
+
+# Get latest predictions
+latest_preds = storage.get_latest_predictions(n=5)
+
+# Check storage status
+info = storage.get_storage_info()
+print(f"Total headlines: {info['headlines']['count']}")
+```
+
 ## Future Enhancements
 
 ### Backend
+- [x] Persistent headline storage (accumulates over time)
+- [x] Prediction storage with metadata
+- [x] Embedding and feature storage
 - [ ] WebSocket support for real-time updates
 - [ ] Multi-symbol support (AAPL, TSLA, etc.)
-- [ ] Historical prediction storage (PostgreSQL)
+- [ ] Historical prediction analysis dashboard
 - [ ] Caching layer (Redis)
 - [ ] Batch prediction endpoint
 - [ ] Model retraining endpoint

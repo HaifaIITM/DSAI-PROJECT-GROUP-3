@@ -146,6 +146,81 @@ curl http://localhost:8000/models/info
 }
 ```
 
+### 4. GET /news
+
+Get stored news headlines (accumulated over time, not limited to last 3 days).
+
+**Query Parameters:**
+- `days_back` (optional, int): Number of days to look back (default: 7)
+
+**Example:**
+```bash
+# Get headlines from last 7 days (default)
+curl http://localhost:8000/news
+
+# Get headlines from last 30 days
+curl http://localhost:8000/news?days_back=30
+
+# Get headlines from last 90 days
+curl http://localhost:8000/news?days_back=90
+```
+
+**Response:**
+```json
+[
+  {
+    "date": "2025-11-09 10:30",
+    "title": "S&P 500 Reaches New High",
+    "publisher": "Reuters",
+    "link": "https://..."
+  },
+  {
+    "date": "2025-11-10 14:15",
+    "title": "Market Analysis: Bullish Trends Continue",
+    "publisher": "Bloomberg",
+    "link": "https://..."
+  }
+]
+```
+
+**Note**: Headlines are automatically accumulated from yfinance (which only provides last 3 days). Each time `/predict` is called, new headlines are fetched and stored, building a historical database over time.
+
+### 5. GET /storage/info
+
+Get information about stored data (headlines, predictions, embeddings, features).
+
+**Example:**
+```bash
+curl http://localhost:8000/storage/info
+```
+
+**Response:**
+```json
+{
+  "headlines": {
+    "file": "application/backend/data/headlines/spy_headlines.csv",
+    "exists": true,
+    "count": 150,
+    "date_range": {
+      "start": "2025-10-01",
+      "end": "2025-11-11"
+    }
+  },
+  "predictions": {
+    "directory": "application/backend/data/predictions",
+    "count": 25
+  },
+  "embeddings": {
+    "directory": "application/backend/data/embeddings",
+    "count": 25
+  },
+  "features": {
+    "directory": "application/backend/data/features",
+    "count": 25
+  }
+}
+```
+
 ---
 
 ## 🐍 Python Usage Examples
@@ -286,22 +361,51 @@ Shows:
 ```
 1. Request → GET /predict
             ↓
-2. Fetch SPY data from yfinance (last 90 days)
+2. Fetch SPY data from yfinance (last 300 days)
             ↓
-3. Compute technical indicators (10 features)
+3. Fetch and store news headlines (last 3 days from yfinance)
             ↓
-4. Add headline embeddings (28 features)
+4. Load stored headlines CSV (accumulated over time)
             ↓
-5. Normalize features (z-score, 252-day rolling)
+5. Compute technical indicators (10 features)
             ↓
-6. Load production models (h1, h5, h20)
+6. Compute headline embeddings (28 features) from stored headlines
             ↓
-7. Generate predictions for all horizons
+7. Merge features (38 total: 10 technical + 28 headline)
             ↓
-8. Fetch recent news (last 3 days)
+8. Normalize features (z-score, 252-day rolling)
             ↓
-9. Return JSON response
+9. Load production models (h1, h5, h20)
+            ↓
+10. Generate predictions for all horizons
+            ↓
+11. Store predictions, embeddings, and features
+            ↓
+12. Return JSON response
 ```
+
+### Storage System
+
+The backend automatically stores all data for analysis:
+
+```
+application/backend/data/
+├── headlines/
+│   └── spy_headlines.csv          # Accumulated headlines (CSV)
+├── predictions/
+│   └── predictions_batch_*.json   # Timestamped predictions
+├── embeddings/
+│   └── embeddings_*.npz           # Headline embeddings (numpy)
+└── features/
+    ├── features_*.npz              # Final 38 features (numpy)
+    └── features_*.csv              # Final 38 features (CSV)
+```
+
+**Storage happens automatically** on each `/predict` call:
+- New headlines are saved (if not already present)
+- Predictions are stored with metadata
+- Embeddings (PCA features) are saved
+- Final 38 features are saved (both NPZ and CSV formats)
 
 ### Features (38 Total)
 
@@ -464,9 +568,61 @@ async def get_predictions(request: Request):
 
 ---
 
+## 💾 Data Storage
+
+### Automatic Storage
+
+Every time `/predict` is called, the following data is automatically stored:
+
+1. **Headlines**: New headlines from yfinance are saved to `data/headlines/spy_headlines.csv`
+   - Headlines accumulate over time (solving yfinance's 3-day limitation)
+   - Duplicates are automatically filtered
+
+2. **Predictions**: Stored as JSON with metadata:
+   - Timestamp
+   - Model information (fold, sharpe ratio)
+   - All predictions (h1, h5, h20)
+   - Date ranges
+
+3. **Embeddings**: Headline PCA features (28 dimensions) saved as NPZ:
+   - Includes metadata (model names, feature names)
+   - Corresponding dates
+
+4. **Features**: Final 38 normalized features saved as both NPZ and CSV:
+   - NPZ format for programmatic access
+   - CSV format for easy inspection
+
+### Accessing Stored Data
+
+**Python:**
+```python
+from storage import DataStorage
+
+storage = DataStorage()
+
+# Get headlines from last 30 days
+headlines_df = storage.get_headlines(days_back=30)
+
+# Get latest predictions
+latest = storage.get_latest_predictions(n=1)
+
+# Check storage status
+info = storage.get_storage_info()
+print(f"Total headlines: {info['headlines']['count']}")
+```
+
+**API:**
+```bash
+# Get stored headlines
+curl http://localhost:8000/news?days_back=30
+
+# Check storage info
+curl http://localhost:8000/storage/info
+```
+
 ## ⚠️ Known Limitations
 
-1. **Headline Embeddings**: Currently uses zero embeddings. For production, integrate live news API.
+1. **yfinance Headlines**: yfinance only provides last 3 days of headlines, but the system accumulates them over time in storage.
 2. **Data Delay**: yfinance has 15-20 minute delays.
 3. **Single Symbol**: Only SPY supported currently.
 4. **Rate Limits**: yfinance API has rate limits.
@@ -475,14 +631,18 @@ async def get_predictions(request: Request):
 
 ## 🔮 Future Enhancements
 
+- [x] Persistent headline storage (accumulates over time)
+- [x] Prediction storage with metadata
+- [x] Embedding and feature storage
 - [ ] Real-time headline embeddings from NewsAPI
 - [ ] Multi-symbol support (AAPL, TSLA, etc.)
 - [ ] WebSocket for live updates
 - [ ] Redis caching for faster responses
-- [ ] PostgreSQL for historical predictions
+- [ ] PostgreSQL for historical predictions (currently using file-based storage)
 - [ ] Authentication & API keys
 - [ ] Rate limiting per user
 - [ ] Grafana dashboard for monitoring
+- [ ] Historical prediction analysis endpoint
 
 ---
 
