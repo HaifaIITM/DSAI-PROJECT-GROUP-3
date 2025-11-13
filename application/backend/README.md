@@ -110,6 +110,41 @@ Get information about loaded models.
 }
 ```
 
+### POST /chat
+
+Explain predictions using Retrieval-Augmented Generation (RAG) backed by the `gpt-oss:120b-cloud` model (served via Ollama by default).
+
+**Request**:
+```json
+{
+  "question": "Why is the 20-day signal a BUY today?",
+  "top_k": 3
+}
+```
+
+**Response**:
+```json
+{
+  "question": "...",
+  "answer": "...",
+  "model": "gpt-oss:120b-cloud",
+  "context": [
+    {
+      "title": "Predictions",
+      "content": "- 2025-11-10: h1=+0.000275 (BUY), h5=-0.000299 (SELL), h20=+0.001592 (BUY), close=681.44\n- 2025-11-11: h1=+0.000758 (BUY), h5=-0.000135 (SELL), h20=+0.004054 (BUY), close=683.00\n- 2025-11-12: h1=+0.000628 (BUY), h5=-0.000247 (SELL), h20=+0.004662 (BUY), close=683.38\n\nModel horizons and Sharpe ratios:\n- H1: Sharpe 1.25\n- H5: Sharpe 2.94\n- H20: Sharpe 6.813",
+      "score": 0.20
+    },
+    {
+      "title": "Market Headlines",
+      "content": "- 2025-11-10 16:22 | MarketBeat: 5 Defensive Consumer Plays to Watch If Markets Keep Slipping\n- 2025-11-11 13:00 | Investor's Business Daily: Dreaded AI Bust Is Here — Wipes Out $1.1 Trillion In Stock Value\n- 2025-11-12 13:52 | MT Newswires: Exchange-Traded Funds, Equity Futures Higher Pre-Bell Wednesday Amid Hopes of Federal Government Reopening",
+      "score": 0.20
+    }
+  ]
+}
+```
+
+The endpoint builds context from stored predictions, engineered features, and recent headlines, then queries the Ollama model to provide an explainable answer. Set `OLLAMA_URL` if Ollama is not running on the default `http://localhost:11434`, and optionally set `OLLAMA_MODEL` to override the default `gpt-oss:120b-cloud`.
+
 ### GET /news
 
 Get stored news headlines (accumulated over time, not just last 3 days).

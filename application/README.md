@@ -307,6 +307,23 @@ curl -s http://localhost:8000/predict | \
 #   "h20_signal": "BUY",
 #   "h20_prediction": 0.016856
 # }
+
+# Ask the RAG assistant for an explanation
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Why is the h20 horizon bullish today?", "top_k":3}'
+# Uses Ollama model `gpt-oss:120b-cloud` by default (override via OLLAMA_MODEL env var)
+# Example response snippet:
+# {
+#   "answer": "...",
+#   "context": [
+#     {
+#       "title": "Predictions",
+#       "content": "- 2025-11-10: h1=+0.000275 (BUY)...",
+#       "score": 0.20
+#     }
+#   ]
+# }
 ```
 
 ---

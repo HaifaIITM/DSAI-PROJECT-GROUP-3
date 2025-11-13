@@ -7,12 +7,12 @@ Endpoints:
 import sys
 import os
 from datetime import datetime
-from typing import List
+from typing import Any, Dict, List
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -32,6 +32,7 @@ from util import (
     FEATURE_COLS_FULL
 )
 from storage import DataStorage
+from rag import RAGService
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -54,6 +55,9 @@ predictor = None
 
 # Global storage instance
 storage = DataStorage()
+
+# RAG service for explainability
+rag_service = RAGService(storage=storage)
 
 
 # Response models
@@ -80,6 +84,18 @@ class PredictionResponse(BaseModel):
     predictions: List[PredictionItem]
     recent_news: List[NewsItem]
     generated_at: str
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=3)
+    top_k: int = Field(3, ge=1, le=5)
+
+
+class ChatResponse(BaseModel):
+    question: str
+    answer: str
+    model: str
+    context: List[Dict[str, Any]]
 
 
 @app.on_event("startup")
@@ -307,6 +323,18 @@ async def get_model_info():
         "models": predictor.get_model_info(),
         "status": "ready"
     }
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def explain_predictions(request: ChatRequest):
+    """Explain predictions using Retrieval-Augmented Generation."""
+    try:
+        result = rag_service.answer_question(request.question, top_k=request.top_k)
+        return result
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Chat error: {exc}")
 
 
 @app.get("/storage/info")

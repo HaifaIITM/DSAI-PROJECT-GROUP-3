@@ -184,7 +184,49 @@ curl http://localhost:8000/news?days_back=90
 
 **Note**: Headlines are automatically accumulated from yfinance (which only provides last 3 days). Each time `/predict` is called, new headlines are fetched and stored, building a historical database over time.
 
-### 5. GET /storage/info
+### 5. POST /chat
+
+Explain predictions using Retrieval-Augmented Generation (RAG) with the `gpt-oss:120b-cloud` model served via Ollama.
+
+**Request Body:**
+```json
+{
+  "question": "How should I interpret the latest 5-day signal?",
+  "top_k": 3
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Why is the 20-day signal bullish?", "top_k":3}'
+```
+
+**Response:**
+```json
+{
+  "question": "...",
+  "answer": "...",
+  "model": "gpt-oss:120b-cloud",
+  "context": [
+    {
+      "title": "Predictions",
+      "content": "- 2025-11-10: h1=+0.000275 (BUY), h5=-0.000299 (SELL), h20=+0.001592 (BUY), close=681.44\n- 2025-11-11: h1=+0.000758 (BUY), h5=-0.000135 (SELL), h20=+0.004054 (BUY), close=683.00\n- 2025-11-12: h1=+0.000628 (BUY), h5=-0.000247 (SELL), h20=+0.004662 (BUY), close=683.38\n\nModel horizons and Sharpe ratios:\n- H1: Sharpe 1.25\n- H5: Sharpe 2.94\n- H20: Sharpe 6.813",
+      "score": 0.20
+    },
+    {
+      "title": "Market Headlines",
+      "content": "- 2025-11-10 16:22 | MarketBeat: 5 Defensive Consumer Plays to Watch If Markets Keep Slipping\n- 2025-11-11 13:00 | Investor's Business Daily: Dreaded AI Bust Is Here — Wipes Out $1.1 Trillion In Stock Value\n- 2025-11-12 13:52 | MT Newswires: Exchange-Traded Funds, Equity Futures Higher Pre-Bell Wednesday Amid Hopes of Federal Government Reopening",
+      "score": 0.20
+    }
+  ]
+}
+```
+
+The backend automatically assembles context from stored predictions, engineered features, and recent headlines, then queries the Ollama model. Override the endpoint by setting `OLLAMA_URL` if Ollama is not running at `http://localhost:11434`, and `OLLAMA_MODEL` to use a different Ollama model.
+
+### 6. GET /storage/info
 
 Get information about stored data (headlines, predictions, embeddings, features).
 
