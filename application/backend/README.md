@@ -182,8 +182,8 @@ Technical Indicators (10 features):
 - rsi_14, vol_z, dow
          ↓
 Headline Embeddings (28 features):
-- FinBERT sentence embeddings (from stored headlines)
-- PCA reduced (12 + 14 dimensions)
+- Sentence embeddings (all-MiniLM-L6-v2 + all-mpnet-base-v2)
+- PCA reduced (12 + 14 dimensions, auto-adjusted if fewer headlines)
          ↓
 Total: 38 features (10 + 28)
          ↓
@@ -302,9 +302,89 @@ The API handles:
 
 All errors return appropriate HTTP status codes and error messages.
 
+## Troubleshooting
+
+### Embeddings Not Generated
+
+If embeddings are not being generated, check:
+
+1. **Headlines Available**: Verify headlines exist in `data/headlines/spy_headlines.csv`
+   ```bash
+   cat application/backend/data/headlines/spy_headlines.csv
+   ```
+
+2. **PCA Dimension Adjustment**: With fewer headlines, PCA dimensions are automatically adjusted:
+   - **10 headlines**: Uses 10 components (instead of 12/14), pads rest with zeros
+   - **12+ headlines**: Uses full 12/14 components
+   - Check console logs for: `[INFO] Adjusting small PCA from 12 to X`
+
+3. **Format Conversion**: System automatically converts storage format to embeddings format
+   - Check console logs for: `[INFO] Converting headlines CSV format for embeddings...`
+
+4. **Storage Info**: Check embeddings count:
+   ```bash
+   curl http://localhost:8000/storage/info
+   ```
+
+For detailed troubleshooting, see the Troubleshooting section above.
+
 ## Testing
 
-### Using curl
+### Automated Test Suite
+
+Run the comprehensive test suite:
+
+```bash
+# Run all tests
+python test_api.py
+
+# Run specific test
+python test_api.py --test test_health_check
+
+# Test against different URL
+python test_api.py --url http://localhost:8080
+```
+
+**Or use the simple runner:**
+```bash
+python run_tests.py
+```
+
+**Tests included:**
+- ✓ Health check endpoint
+- ✓ Models info endpoint
+- ✓ Predictions endpoint (full validation)
+- ✓ News headlines endpoint (multiple parameters)
+- ✓ Storage info endpoint
+- ✓ Error handling
+
+**Expected output:**
+```
+================================================================================
+  API Test Suite - Hybrid ESN-Ridge Prediction API
+================================================================================
+Testing API at: http://localhost:8000
+Started at: 2025-11-11 15:30:00
+
+✓ Server is running
+
+================================================================================
+  Test 1: Health Check (GET /)
+================================================================================
+✓ Health Check - Status Code
+✓ Health Check - Response Structure
+...
+
+Test Summary
+Total Tests: 25
+✓ Passed: 23
+✗ Failed: 0
+⚠ Warnings: 2
+
+✅ All critical tests passed!
+```
+
+### Manual Testing with curl
 
 ```bash
 # Health check
@@ -315,9 +395,15 @@ curl http://localhost:8000/predict
 
 # Get model info
 curl http://localhost:8000/models/info
+
+# Get news headlines
+curl http://localhost:8000/news?days_back=30
+
+# Get storage info
+curl http://localhost:8000/storage/info
 ```
 
-### Using Python
+### Manual Testing with Python
 
 ```python
 import requests
@@ -329,6 +415,10 @@ data = response.json()
 print(f"Symbol: {data['symbol']}")
 print(f"Latest prediction: {data['predictions'][-1]}")
 print(f"Recent news: {len(data['recent_news'])} items")
+
+# Get storage info
+storage_info = requests.get("http://localhost:8000/storage/info").json()
+print(f"Stored headlines: {storage_info['headlines']['count']}")
 ```
 
 ## Data Storage
@@ -370,10 +460,20 @@ curl http://localhost:8000/storage/info
 ## Limitations
 
 1. **yfinance Headlines**: yfinance only provides last 3 days, but system accumulates them over time in storage.
-2. **Historical Data**: yfinance may have delays (15-20 minutes).
-3. **Rate Limits**: yfinance has rate limits on API calls.
-4. **Single Symbol**: Currently only supports SPY.
-5. **File-based Storage**: Currently uses file system (can be migrated to database for production).
+
+2. **PCA Dimension Adjustment**: When fewer headlines are available than requested PCA dimensions, the system automatically adjusts:
+   - Counts available headlines before computing embeddings
+   - Uses `min(requested_dim, num_headlines)` for PCA components
+   - Pads missing dimensions with zeros to maintain 38 features
+   - Example: 10 headlines → 10 PCA components (instead of 12/14), padded to full dimensions
+
+3. **Historical Data**: yfinance may have delays (15-20 minutes).
+
+4. **Rate Limits**: yfinance has rate limits on API calls.
+
+5. **Single Symbol**: Currently only supports SPY.
+
+6. **File-based Storage**: Currently uses file system (can be migrated to database for production).
 
 ## Future Enhancements
 

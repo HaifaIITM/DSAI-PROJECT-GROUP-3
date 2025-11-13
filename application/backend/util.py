@@ -373,16 +373,156 @@ def prepare_features_for_prediction(
         try:
             # Try to use provided headlines CSV
             if headlines_csv and os.path.exists(headlines_csv):
-                headline_feats = compute_headline_features(
-                    target_dates=df_features.index,
-                    headlines_csv=headlines_csv,
-                    small_model=SMALL_MODEL,
-                    large_model=LARGE_MODEL,
-                    small_pca_dim=SMALL_PCA_DIM,
-                    large_pca_dim=LARGE_PCA_DIM,
-                    random_state=RANDOM_SEED,
-                    agg_method=AGG_METHOD
-                )
+                # Check if CSV needs conversion (storage format vs embeddings format)
+                # Storage format: date,title,publisher,link
+                # Embeddings format: published_utc,title
+                try:
+                    # Try to read and check format
+                    test_df = pd.read_csv(headlines_csv, nrows=1)
+                    if 'published_utc' not in test_df.columns and 'date' in test_df.columns:
+                        # Need to convert storage format to embeddings format
+                        print("[INFO] Converting headlines CSV format for embeddings...")
+                        import tempfile
+                        storage_df = pd.read_csv(headlines_csv, parse_dates=['date'])
+                        # Ensure properly formatted datetime
+                        storage_df['date'] = pd.to_datetime(storage_df['date'], errors='coerce')
+                        
+                        # Convert to embeddings format
+                        # embeddings.py does: pd.to_datetime(df["published_utc"]).dt.tz_convert(None)
+                        # tz_convert requires timezone-aware timestamps, so we need to add timezone
+                        # Add UTC timezone to make it timezone-aware (if not already)
+                        if storage_df['date'].dt.tz is None:
+                            # Localize naive datetime to UTC
+                            storage_df['date'] = storage_df['date'].dt.tz_localize('UTC', ambiguous='infer', nonexistent='shift_forward')
+                        elif storage_df['date'].dt.tz is not None:
+                            # Convert existing timezone to UTC
+                            storage_df['date'] = storage_df['date'].dt.tz_convert('UTC')
+                        
+                        # Format as ISO with 'Z' suffix for UTC (pandas will parse as UTC)
+                        embeddings_df = pd.DataFrame({
+                            'published_utc': storage_df['date'].dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z',
+                            'title': storage_df['title']
+                        })
+                        # Ensure published_utc is a string
+                        embeddings_df['published_utc'] = embeddings_df['published_utc'].astype(str)
+                        # Drop rows with missing titles
+                        embeddings_df = embeddings_df.dropna(subset=['title'])
+                        
+                        num_headlines = len(embeddings_df)
+                        print(f"[INFO] Converted {num_headlines} headlines for embedding computation")
+                        
+                        # Adjust PCA dimensions based on available samples
+                        # PCA requires n_components <= min(n_samples, n_features)
+                        # Small model embedding dim: 384, Large model: 768
+                        # But we need to account for number of headlines
+                        # Use min of requested dims and available samples
+                        adjusted_small_pca = min(SMALL_PCA_DIM, num_headlines)
+                        adjusted_large_pca = min(LARGE_PCA_DIM, num_headlines)
+                        
+                        if adjusted_small_pca < SMALL_PCA_DIM:
+                            print(f"[INFO] Adjusting small PCA from {SMALL_PCA_DIM} to {adjusted_small_pca} (only {num_headlines} headlines)")
+                        if adjusted_large_pca < LARGE_PCA_DIM:
+                            print(f"[INFO] Adjusting large PCA from {LARGE_PCA_DIM} to {adjusted_large_pca} (only {num_headlines} headlines)")
+                        
+                        # Save to temp file
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+                            temp_path = f.name
+                            embeddings_df.to_csv(temp_path, index=False)
+                        
+                        try:
+                            headline_feats = compute_headline_features(
+                                target_dates=df_features.index,
+                                headlines_csv=temp_path,
+                                small_model=SMALL_MODEL,
+                                large_model=LARGE_MODEL,
+                                small_pca_dim=adjusted_small_pca,
+                                large_pca_dim=adjusted_large_pca,
+                                random_state=RANDOM_SEED,
+                                agg_method=AGG_METHOD
+                            )
+                            
+                            # If PCA dimensions were reduced, pad with zeros to match expected feature count
+                            if headline_feats is not None and (adjusted_small_pca < SMALL_PCA_DIM or adjusted_large_pca < LARGE_PCA_DIM):
+                                print(f"[INFO] Padding headline features to match expected dimensions...")
+                                # Get expected column names
+                                expected_small_cols = [f"pca_{i+1}" for i in range(SMALL_PCA_DIM)] + ["has_news"]
+                                expected_large_cols = [f"pca_{i+1}_large" for i in range(LARGE_PCA_DIM)] + ["has_news_large"]
+                                
+                                # Add missing columns with zeros
+                                for col in expected_small_cols:
+                                    if col not in headline_feats.columns:
+                                        headline_feats[col] = 0.0
+                                
+                                for col in expected_large_cols:
+                                    if col not in headline_feats.columns:
+                                        headline_feats[col] = 0.0
+                                
+                                # Reorder columns to match expected order
+                                headline_feats = headline_feats[expected_small_cols + expected_large_cols]
+                                print(f"[INFO] Headline features padded to {len(headline_feats.columns)} dimensions")
+                        
+                        finally:
+                            # Clean up temp file
+                            if os.path.exists(temp_path):
+                                os.unlink(temp_path)
+                    else:
+                        # Already in correct format - check number of headlines for PCA adjustment
+                        try:
+                            check_df = pd.read_csv(headlines_csv)
+                            num_headlines = len(check_df)
+                            
+                            # Adjust PCA dimensions based on available samples
+                            adjusted_small_pca = min(SMALL_PCA_DIM, num_headlines)
+                            adjusted_large_pca = min(LARGE_PCA_DIM, num_headlines)
+                            
+                            if adjusted_small_pca < SMALL_PCA_DIM or adjusted_large_pca < LARGE_PCA_DIM:
+                                print(f"[INFO] Adjusting PCA dimensions: small={adjusted_small_pca}, large={adjusted_large_pca} (only {num_headlines} headlines)")
+                            
+                            headline_feats = compute_headline_features(
+                                target_dates=df_features.index,
+                                headlines_csv=headlines_csv,
+                                small_model=SMALL_MODEL,
+                                large_model=LARGE_MODEL,
+                                small_pca_dim=adjusted_small_pca,
+                                large_pca_dim=adjusted_large_pca,
+                                random_state=RANDOM_SEED,
+                                agg_method=AGG_METHOD
+                            )
+                            
+                            # If PCA dimensions were reduced, pad with zeros to match expected feature count
+                            if headline_feats is not None and (adjusted_small_pca < SMALL_PCA_DIM or adjusted_large_pca < LARGE_PCA_DIM):
+                                print(f"[INFO] Padding headline features to match expected dimensions...")
+                                expected_small_cols = [f"pca_{i+1}" for i in range(SMALL_PCA_DIM)] + ["has_news"]
+                                expected_large_cols = [f"pca_{i+1}_large" for i in range(LARGE_PCA_DIM)] + ["has_news_large"]
+                                
+                                for col in expected_small_cols:
+                                    if col not in headline_feats.columns:
+                                        headline_feats[col] = 0.0
+                                
+                                for col in expected_large_cols:
+                                    if col not in headline_feats.columns:
+                                        headline_feats[col] = 0.0
+                                
+                                headline_feats = headline_feats[expected_small_cols + expected_large_cols]
+                                print(f"[INFO] Headline features padded to {len(headline_feats.columns)} dimensions")
+                        except Exception as e:
+                            print(f"[WARN] Error checking headlines count: {e}")
+                            # Fallback to original dimensions (might fail, but try anyway)
+                            headline_feats = compute_headline_features(
+                                target_dates=df_features.index,
+                                headlines_csv=headlines_csv,
+                                small_model=SMALL_MODEL,
+                                large_model=LARGE_MODEL,
+                                small_pca_dim=SMALL_PCA_DIM,
+                                large_pca_dim=LARGE_PCA_DIM,
+                                random_state=RANDOM_SEED,
+                                agg_method=AGG_METHOD
+                            )
+                except Exception as e:
+                    print(f"[WARN] Error reading/converting headlines CSV: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    headline_feats = None
             else:
                 # Try to fetch recent news and create temporary CSV
                 print("[INFO] No headlines CSV provided, fetching recent news...")
@@ -417,6 +557,8 @@ def prepare_features_for_prediction(
         
         except Exception as e:
             print(f"[WARN] Could not compute headline features: {e}")
+            import traceback
+            traceback.print_exc()
             print("Continuing with technical features only")
     
     # Step 3: Merge technical + headline features
@@ -453,11 +595,18 @@ def prepare_features_for_prediction(
     # Step 6: Prepare return values
     intermediates = None
     if return_intermediates:
+        # Log whether headline features were computed
+        if headline_feats is not None:
+            print(f"[INFO] Headline features computed: {headline_feats.shape[0]} samples, {headline_feats.shape[1]} features")
+        else:
+            print("[WARN] No headline features computed - will use zero-filled embeddings")
+        
         intermediates = {
             "headline_features": headline_feats.values if headline_feats is not None else None,
             "headline_feature_names": list(headline_feats.columns) if headline_feats is not None else None,
             "raw_embeddings": raw_embeddings,
-            "feature_names": FEATURE_COLS_FULL
+            "feature_names": FEATURE_COLS_FULL,
+            "headline_feats_computed": headline_feats is not None
         }
     
     # Return features and corresponding dates (and intermediates if requested)

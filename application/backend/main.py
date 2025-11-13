@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import List
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -110,10 +110,10 @@ async def root():
 @app.get("/predict", response_model=PredictionResponse)
 async def get_predictions():
     """
-    Get predictions for SPY for last 30 days + recent news (last 3 days).
+    Get fresh predictions for SPY for last 3 days (today, yesterday, day before yesterday).
     
     Returns:
-        - predictions: Array of predictions for each day (all horizons: h1, h5, h20)
+        - predictions: Array of predictions for last 3 days (all horizons: h1, h5, h20)
         - recent_news: Last 3 days of news headlines (ascending by date)
     """
     try:
@@ -159,19 +159,18 @@ async def get_predictions():
         print("Generating predictions...")
         predictions_all = predictor.predict_all(X_features)
         
-        # 5. Get last 30 days
-        last_30_days = min(30, len(X_features))
-        
-        # Get dates and prices for last 30 days
-        recent_dates = feature_dates[-last_30_days:]
+        # 5. Get last 3 days (today, yesterday, day before yesterday)
+        # Get the most recent trading days
+        last_3_days = min(3, len(X_features))
+        recent_dates = feature_dates[-last_3_days:]
         
         # Get corresponding prices from original dataframe
         price_col = "Adj Close" if "Adj Close" in df.columns else "Close"
         df_prices = df.rename(columns={price_col: "PX"})
         recent_prices = df_prices.loc[recent_dates, "PX"].values
         
-        # Align predictions (take last 30 from predictions)
-        pred_start_idx = max(0, len(X_features) - last_30_days)
+        # Align predictions (take last 3 from predictions)
+        pred_start_idx = max(0, len(X_features) - last_3_days)
         
         predictions_list = []
         for i, date in enumerate(recent_dates):
@@ -188,45 +187,66 @@ async def get_predictions():
                 "actual_close": float(recent_prices[i])
             })
         
+        # Sort by date (oldest first)
+        predictions_list.sort(key=lambda x: x['date'])
+        
         # 6. Store predictions, embeddings, and features
         print("Storing predictions, embeddings, and features...")
         
-        # Store predictions
+        # Store predictions (only last 3 days)
         prediction_metadata = {
             "symbol": "SPY",
             "model_info": predictor.get_model_info(),
             "n_samples": len(X_features),
+            "prediction_days": last_3_days,
             "date_range": {
-                "start": str(feature_dates[0]),
-                "end": str(feature_dates[-1])
-            }
+                "start": str(recent_dates[0]),
+                "end": str(recent_dates[-1])
+            },
+            "prediction_type": "fresh_3_days"
         }
         storage.save_predictions_batch(predictions_list, metadata=prediction_metadata)
         
-        # Store embeddings (if available)
+        # Store embeddings (if available) - only for last 3 days
         if intermediates and intermediates.get("headline_features") is not None:
             headline_embeddings = intermediates["headline_features"]
-            storage.save_embeddings(
-                embeddings=headline_embeddings,
-                dates=feature_dates,
-                metadata={
-                    "embedding_type": "headline_pca",
-                    "feature_names": intermediates.get("headline_feature_names"),
-                    "small_model": SMALL_MODEL,
-                    "large_model": LARGE_MODEL
-                }
-            )
+            # Only store embeddings for last 3 days
+            headline_embeddings_last3 = headline_embeddings[-last_3_days:]
+            feature_dates_last3 = feature_dates[-last_3_days:]
+            
+            try:
+                storage.save_embeddings(
+                    embeddings=headline_embeddings_last3,
+                    dates=feature_dates_last3,
+                    metadata={
+                        "embedding_type": "headline_pca",
+                        "feature_names": intermediates.get("headline_feature_names"),
+                        "small_model": SMALL_MODEL,
+                        "large_model": LARGE_MODEL,
+                        "prediction_type": "fresh_3_days"
+                    }
+                )
+                print("✓ Embeddings stored successfully (last 3 days)")
+            except Exception as e:
+                print(f"⚠ Warning: Could not store embeddings: {e}")
+        else:
+            print("⚠ Warning: No headline embeddings to store (using zero-filled embeddings)")
         
-        # Store final 38 features
+        # Store final 38 features (only for last 3 days)
         feature_names = FEATURE_COLS_FULL if intermediates is None else intermediates.get("feature_names", FEATURE_COLS_FULL)
+        # Only store features for the last 3 days
+        X_features_last3 = X_features[-last_3_days:]
+        feature_dates_last3 = feature_dates[-last_3_days:]
+        
         storage.save_features(
-            features=X_features,
-            dates=feature_dates,
+            features=X_features_last3,
+            dates=feature_dates_last3,
             feature_names=feature_names,
             metadata={
                 "normalization": "rolling_zscore_252d",
-                "n_features": X_features.shape[1],
-                "n_samples": X_features.shape[0]
+                "n_features": X_features_last3.shape[1],
+                "n_samples": X_features_last3.shape[0],
+                "prediction_type": "fresh_3_days"
             }
         )
         
@@ -252,8 +272,13 @@ async def get_predictions():
 
 
 @app.get("/news")
-async def get_news(days_back: int = 7):
-    """Get stored news headlines for SPY"""
+async def get_news(days_back: int = Query(7, ge=1, description="Number of days to look back (must be >= 1)")):
+    """
+    Get stored news headlines for SPY
+    
+    Args:
+        days_back: Number of days to look back (must be >= 1, default: 7)
+    """
     df_news = storage.get_headlines(days_back=days_back)
     
     if len(df_news) == 0:

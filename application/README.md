@@ -108,7 +108,6 @@ application/
 │   │   ├── embeddings/          # Headline embeddings
 │   │   └── features/            # Final 38 features
 │   ├── test_api.py             # API tests
-│   ├── example_usage.py        # Usage examples
 │   ├── start.sh                # Linux/Mac startup
 │   └── start.bat               # Windows startup
 │

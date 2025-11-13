@@ -12,7 +12,6 @@ application/backend/
 ├── requirements.txt         # Python dependencies
 ├── README.md               # Detailed documentation
 ├── test_api.py             # API testing script
-├── example_usage.py        # Usage examples
 ├── start.sh                # Linux/Mac startup script
 └── start.bat               # Windows startup script
 ```
@@ -338,19 +337,9 @@ Total: 3/3 tests passed
 ✓ All tests passed!
 ```
 
-### Example Usage Script
+### Example Usage
 
-```bash
-python example_usage.py
-```
-
-Shows:
-- Last 5 days predictions
-- Latest trading signals
-- Consensus recommendation
-- Recent news headlines
-- Prediction statistics
-- Simple backtest
+You can use the API directly with curl or Python requests. See the README.md for detailed examples.
 
 ---
 
