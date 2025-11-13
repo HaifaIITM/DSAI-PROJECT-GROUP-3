@@ -12,6 +12,18 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+const horizonLabels = {
+  h1: "1-Day",
+  h5: "5-Day",
+  h20: "20-Day",
+};
+
+const horizonColors = {
+  h1: "#60a5fa",
+  h5: "#f59e0b",
+  h20: "#10b981",
+};
+
 export default function RiskDashboard() {
   // ---------------------- PREDICTIONS / NEWS ----------------------
   const [predictions, setPredictions] = useState([]);
@@ -78,6 +90,24 @@ export default function RiskDashboard() {
     [predictions]
   );
 
+  const horizonSummary = useMemo(() => {
+    if (!predictions.length) return [];
+    const latest = predictions[predictions.length - 1];
+
+    return ["h1", "h5", "h20"].map((key) => {
+      const prediction = latest?.[`${key}_prediction`] ?? 0;
+      const signal = latest?.[`${key}_signal`] ?? "N/A";
+      return {
+        key,
+        label: horizonLabels[key],
+        signal,
+        prediction,
+        color: horizonColors[key],
+        intensity: Math.abs(prediction) * 100,
+      };
+    });
+  }, [predictions]);
+
   // ---------------------- CHAT / RAG PANEL ----------------------
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -135,155 +165,253 @@ export default function RiskDashboard() {
   }
 
   return (
-    <div className="w-screen h-screen bg-black text-white p-6 grid grid-cols-2 gap-4">
-      {/* ---------------- METRIC SUMMARY ---------------- */}
-      <div className="col-span-2 grid grid-cols-3 gap-4 mb-2">
-        <div className="bg-gray-900 rounded-2xl p-4">
-          <h3 className="text-sm uppercase text-gray-400 mb-1">Symbol</h3>
-          <p className="text-2xl font-bold">{symbol}</p>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 p-6 space-y-6">
+      {/* ---------------- HEADER SUMMARY ---------------- */}
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 md:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg shadow-slate-950/40">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-3">Symbol</p>
+          <p className="text-4xl font-semibold tracking-wider">{symbol}</p>
         </div>
-        <div className="bg-gray-900 rounded-2xl p-4">
-          <h3 className="text-sm uppercase text-gray-400 mb-1">Latest h20 Signal</h3>
+        <div className="col-span-12 md:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg shadow-slate-950/40">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-3">Latest h20 Signal</p>
           {latestPrediction ? (
-            <div>
-              <p className="text-2xl font-bold">{latestPrediction.h20_signal}</p>
-              <p className="text-gray-400 text-sm">
-                {`Prediction: ${(latestPrediction.h20_prediction * 100).toFixed(2)}%`}
+            <div className="space-y-1">
+              <p className="text-3xl font-semibold">{latestPrediction.h20_signal}</p>
+              <p className="text-sm text-slate-400">
+                {(latestPrediction.h20_prediction * 100).toFixed(2)}% · Close $
+                {latestPrediction.actual_close.toFixed(2)}
               </p>
-              <p className="text-gray-400 text-sm">
-                Close: ${latestPrediction.actual_close.toFixed(2)}
-              </p>
+              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-emerald-300 bg-emerald-500/10 px-3 py-1 rounded-full">
+                Trend
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+              </span>
             </div>
           ) : (
-            <p className="text-gray-500">No data</p>
+            <p className="text-slate-500 text-sm">No data available.</p>
           )}
         </div>
-        <div className="bg-gray-900 rounded-2xl p-4">
-          <h3 className="text-sm uppercase text-gray-400 mb-1">Last Updated</h3>
-          <p className="text-lg font-bold">
-            {generatedAt ? new Date(generatedAt).toLocaleString() : "—"}
+
+        <div className="col-span-12 md:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg shadow-slate-950/40">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-3">Last Updated</p>
+          <p className="text-xl font-semibold">
+            {generatedAt ? new Date(generatedAt).toLocaleString() : "Awaiting data"}
           </p>
         </div>
       </div>
 
-      {/* ---------------- CHART PANEL ---------------- */}
-      <div className="bg-gray-900 rounded-2xl p-4 relative flex flex-col">
-        <h2 className="text-xl font-bold mb-4">Return Forecasts (Predictions)</h2>
-        <div className="w-full h-72 bg-gray-800 rounded-xl p-4">
-          {loading ? (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              Loading predictions...
-            </div>
-          ) : error ? (
-            <div className="w-full h-full flex items-center justify-center text-red-400">
-              {error}
-            </div>
-          ) : chartData.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="date" stroke="#aaa" />
-                <YAxis
-                  stroke="#aaa"
-                  tickFormatter={(value) => `${value.toFixed(2)}%`}
-                  domain={["auto", "auto"]}
+      {/* ---------------- HORIZON SUMMARY ---------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {horizonSummary.map(({ key, label, signal, prediction, color, intensity }) => (
+          <div
+            key={key}
+            className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-lg shadow-slate-950/30"
+          >
+            <div
+              className="absolute inset-x-0 top-0 h-1 opacity-60"
+              style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
+            />
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-3">{label}</p>
+            <p className="text-3xl font-semibold">
+              {signal}
+              <span className="ml-2 text-base text-slate-400">
+                {(prediction * 100).toFixed(2)}%
+              </span>
+            </p>
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-slate-500 mb-1">
+                <span>Momentum</span>
+                <span>{intensity.toFixed(2)}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(intensity, 100)}%`,
+                    background: color,
+                  }}
                 />
-                <Tooltip
-                  formatter={(value) => [`${value.toFixed(3)}%`, ""]}
-                  labelFormatter={(label) => `Date: ${label}`}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="h1" stroke="#60a5fa" strokeWidth={2} dot />
-                <Line type="monotone" dataKey="h5" stroke="#f59e0b" strokeWidth={2} dot />
-                <Line type="monotone" dataKey="h20" stroke="#10b981" strokeWidth={3} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              No prediction data available.
+              </div>
             </div>
-          )}
-        </div>
-        {/* ---------------- HEADLINES PANEL ---------------- */}
-        <div className="bg-gray-900 rounded-2xl p-4 flex flex-col mt-4">
-          <h2 className="text-xl font-bold mb-4">Recent Headlines</h2>
-          {loading && !news.length ? (
-            <div className="text-gray-400">Loading headlines...</div>
-          ) : news.length ? (
-            <div className="flex-1 overflow-y-auto space-y-3 max-h-64 pr-1">
-              {news.map((item, idx) => (
-                <div key={`${item.title}-${idx}`} className="bg-gray-800 p-3 rounded-xl">
-                  <p className="font-semibold">{item.title}</p>
-                  <p className="text-sm text-gray-400 mt-1">{item.publisher ?? "Unknown"}</p>
-                  <p className="text-xs text-gray-500">
-                    {item.date ? new Date(item.date).toLocaleString() : ""}
-                  </p>
-                  {item.link && (
-                    <a
-                      href={item.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-400 text-xs mt-2 inline-block"
-                    >
-                      View source
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-red-400">{error}</div>
-          ) : (
-            <div className="text-gray-400">No recent headlines available.</div>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
 
-      {/* ---------------- RAG CHAT PANEL ---------------- */}
-      <div className="bg-gray-900 rounded-2xl p-4 flex flex-col">
-        <h2 className="text-xl font-bold mb-4">Post your questions here!</h2>
-        <div className="flex-1 bg-gray-800 rounded-xl p-3 overflow-y-auto space-y-3">
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`max-w-[80%] p-3 rounded-xl ${
-                m.sender === "user" ? "bg-blue-600 self-end ml-auto" : "bg-green-600 self-start"
-              }`}
-            >
-              {m.text.split("\n").map((line, lineIdx) => (
-                <React.Fragment key={lineIdx}>
-                  {line}
-                  <br />
-                </React.Fragment>
-              ))}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* ---------------- CHART PANEL ---------------- */}
+        <div className="xl:col-span-2 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-950/40">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">Return Forecasts</h2>
+              <p className="text-sm text-slate-400">Predicted % change · positive → BUY bias</p>
             </div>
-          ))}
-          {!messages.length && (
-            <div className="text-gray-400 text-sm">Ask the RAG assistant about the predictions.</div>
-          )}
+            <div className="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-slate-500">
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-4 rounded bg-[#60a5fa]" />
+                h1
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-4 rounded bg-[#f59e0b]" />
+                h5
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-4 rounded bg-[#10b981]" />
+                h20
+              </span>
+            </div>
+          </div>
+
+          <div className="w-full h-80 bg-slate-950/60 rounded-2xl border border-slate-800/60 backdrop-blur">
+            {loading ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <div className="h-10 w-10 rounded-full border-2 border-slate-700 border-t-emerald-400 animate-spin" />
+                Fetching predictions...
+              </div>
+            ) : error ? (
+              <div className="w-full h-full flex items-center justify-center text-red-400">
+                {error}
+              </div>
+            ) : chartData.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="date" stroke="#94a3b8" />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tickFormatter={(value) => `${value.toFixed(2)}%`}
+                    domain={["auto", "auto"]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                    }}
+                    formatter={(value) => [`${value.toFixed(3)}%`, "Return"]}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="h1" stroke={horizonColors.h1} strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="h5" stroke={horizonColors.h5} strokeWidth={2} dot />
+                  <Line
+                    type="monotone"
+                    dataKey="h20"
+                    stroke={horizonColors.h20}
+                    strokeWidth={3}
+                    dot
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-slate-400">
+                No prediction data available.
+              </div>
+            )}
+          </div>
+
+          {/* ---------------- HEADLINES PANEL ---------------- */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold tracking-tight">Recent Headlines</h2>
+              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                sentiment cues
+              </span>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-4 max-h-72 overflow-y-auto pr-2">
+              {loading && !news.length ? (
+                <div className="text-slate-400 text-sm">Loading headlines...</div>
+              ) : news.length ? (
+                news.map((item, idx) => (
+                  <div
+                    key={`${item.title}-${idx}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 transition hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base font-semibold leading-snug">{item.title}</h3>
+                      <span className="text-[10px] uppercase tracking-[0.3em] text-emerald-300">
+                        {item.publisher ?? "Source"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      {item.date ? new Date(item.date).toLocaleString() : ""}
+                    </p>
+                    {item.link && (
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-xs text-emerald-300 mt-3 hover:underline"
+                      >
+                        View source →
+                      </a>
+                    )}
+                  </div>
+                ))
+              ) : error ? (
+                <div className="text-red-400">{error}</div>
+              ) : (
+                <div className="text-slate-400">No recent headlines available.</div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {chatError && (
-          <div className="mt-2 text-sm text-red-400">Chat error: {chatError}</div>
-        )}
+        {/* ---------------- RAG CHAT PANEL ---------------- */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-950/40 flex flex-col">
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold tracking-tight">Post your questions here!</h2>
+            <p className="text-sm text-slate-400">
+              Ask about signals, risk posture, or key headlines. Responses come from the RAG layer.
+            </p>
+          </div>
 
-        <div className="mt-4 flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 bg-gray-800 rounded-xl p-3"
-            placeholder="Type your query..."
-          />
-          <button
-            onClick={sendMessage}
-            disabled={isSending}
-            className={`rounded-xl px-4 py-2 font-semibold ${
-              isSending ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            {isSending ? "Sending..." : "Send"}
-          </button>
+          <div className="flex-1 bg-slate-950/60 border border-slate-800/70 rounded-2xl p-4 overflow-y-auto space-y-3">
+            {messages.map((m, idx) => (
+              <div
+                key={idx}
+                className={`max-w-[85%] p-4 rounded-2xl whitespace-pre-line leading-relaxed tracking-wide shadow-md ${
+                  m.sender === "user"
+                    ? "bg-blue-600/80 border border-blue-400/40 self-end ml-auto"
+                    : "bg-emerald-600/20 border border-emerald-400/40 self-start"
+                }`}
+              >
+                {m.text}
+              </div>
+            ))}
+            {!messages.length && (
+              <div className="text-slate-500 text-sm">
+                Ask the assistant for context—e.g., “Summarize today’s h5 outlook with supporting
+                news.”
+              </div>
+            )}
+          </div>
+
+          {chatError && (
+            <div className="mt-3 text-sm text-red-400 bg-red-500/10 border border-red-400/30 rounded-xl px-3 py-2">
+              Chat error: {chatError}
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-3">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={2}
+              className="flex-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              placeholder="Type your query... Press Enter to send"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={isSending}
+              className={`h-12 px-6 rounded-2xl font-semibold shadow-lg transition ${
+                isSending
+                  ? "bg-emerald-500/40 text-emerald-100 cursor-not-allowed"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-900"
+              }`}
+            >
+              {isSending ? "Sending..." : "Send"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
