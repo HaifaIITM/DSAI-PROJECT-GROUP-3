@@ -129,7 +129,7 @@ DSAI-PROJECT-GROUP-3/
 │  └── experiments/               # <model>/<exp_id>/fold_k/{preds,metrics}
 │     └── hybrid/                 # Hybrid model checkpoints (M5)
 │        ├── fold_0/
-│        ├── fold_3/              # Best model (Sharpe 6.81) ⭐
+│        ├── fold_3/              
 │        └── fold_8/
 │
 └── docs/                         # Documentation
@@ -273,11 +273,11 @@ All models expose uniform API: `.fit(X, y)` / `.predict(X)` and are registered i
 
 ### Best Models by Horizon (Fold 3)
 
-| Horizon | Model | Sharpe | Dir Acc | RMSE | Purpose |
+| Horizon | Model  | Dir Acc | RMSE | Purpose |
 |---------|-------|--------|---------|------|---------|
-| **h1** | **Hybrid** | **1.25** | 65.2% | 0.010 | Day trading |
-| **h5** | **Hybrid** | **2.94** | 66.5% | 0.019 | Swing trading |
-| **h20** | **Hybrid** | **6.81** | **68.7%** | **0.028** | Position trading ⭐ |
+| **h1** | **Hybrid** | 65.2% | 0.010 | Day trading |
+| **h5** | **Hybrid**  | 66.5% | 0.019 | Swing trading |
+| **h20** | **Hybrid** | **68.7%** | **0.028** | Position trading ⭐ |
 
 ### Fold 0 Comparison (target_h20)
 
