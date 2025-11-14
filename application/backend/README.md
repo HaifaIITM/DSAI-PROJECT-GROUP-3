@@ -112,7 +112,7 @@ Get information about loaded models.
 
 ### POST /chat
 
-Explain predictions using Retrieval-Augmented Generation (RAG) backed by the `gpt-oss:120b-cloud` model (served via Ollama by default).
+Explain predictions using Retrieval-Augmented Generation (RAG) backed by OpenAI API (default model: `gpt-4o-mini`).
 
 **Request**:
 ```json
@@ -143,7 +143,7 @@ Explain predictions using Retrieval-Augmented Generation (RAG) backed by the `gp
 }
 ```
 
-The endpoint builds context from stored predictions, engineered features, and recent headlines, then queries the Ollama model to provide an explainable answer. Set `OLLAMA_URL` if Ollama is not running on the default `http://localhost:11434`, and optionally set `OLLAMA_MODEL` to override the default `gpt-oss:120b-cloud`.
+The endpoint builds context from stored predictions, engineered features, and recent headlines, then queries the OpenAI API to provide an explainable answer. Set the `OPENAI_API_KEY` environment variable with your OpenAI API key. The default model is `gpt-4o-mini` (can be changed via `OPENAI_MODEL`).
 
 ### GET /news
 

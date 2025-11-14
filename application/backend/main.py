@@ -12,6 +12,8 @@ from typing import Any, Dict, List
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 # Add project root to path
@@ -41,10 +43,21 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - allow HF Spaces and localhost
+allowed_origins = [
+    "https://*.hf.space",
+    "http://localhost:7860",
+    "http://localhost:8000",
+    "http://127.0.0.1:7860",
+    "http://127.0.0.1:8000",
+]
+# In production, also allow all (HF Spaces dynamic URLs)
+if os.environ.get("HF_SPACE_ID"):
+    allowed_origins.append("*")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,8 +69,8 @@ predictor = None
 # Global storage instance
 storage = DataStorage()
 
-# RAG service for explainability
-rag_service = RAGService(storage=storage)
+# Global RAG service (initialized on startup)
+rag_service = None
 
 
 # Response models
@@ -101,7 +114,7 @@ class ChatResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Load production models on startup"""
-    global predictor
+    global predictor, rag_service
     print("Loading production models...")
     try:
         # Use absolute path to models (relative to project root)
@@ -111,10 +124,24 @@ async def startup_event():
     except Exception as e:
         print(f"✗ Error loading models: {e}")
         raise
+    
+    # Initialize RAG service (requires OPENAI_API_KEY)
+    try:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            rag_service = RAGService(storage=storage, api_key=api_key)
+            print("✓ RAG service initialized (OpenAI)")
+        else:
+            print("⚠ Warning: OPENAI_API_KEY not set, RAG service disabled")
+            rag_service = None
+    except Exception as e:
+        print(f"⚠ Warning: RAG service initialization failed: {e}")
+        rag_service = None
 
 
-@app.get("/")
-async def root():
+# Health check endpoint (will be overridden if static files exist)
+@app.get("/api/health")
+async def health_check():
     """Health check endpoint"""
     return {
         "status": "online",
@@ -328,6 +355,8 @@ async def get_model_info():
 @app.post("/chat", response_model=ChatResponse)
 async def explain_predictions(request: ChatRequest):
     """Explain predictions using Retrieval-Augmented Generation."""
+    if rag_service is None:
+        raise HTTPException(status_code=503, detail="RAG service not available")
     try:
         result = rag_service.answer_question(request.question, top_k=request.top_k)
         return result
@@ -343,17 +372,49 @@ async def get_storage_info():
     return storage.get_storage_info()
 
 
+# Serve static files (frontend) - must be last
+static_dir = os.path.join(backend_dir, "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    
+    @app.get("/")
+    async def serve_frontend():
+        """Serve frontend index.html"""
+        index_path = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"status": "online", "service": "Hybrid ESN-Ridge Stock Predictor API", "version": "1.0.0"}
+    
+    # Catch-all route for frontend routing (must be last)
+    @app.get("/{full_path:path}")
+    async def serve_frontend_routes(full_path: str):
+        """Serve frontend routes (React Router)"""
+        # Don't interfere with API routes
+        if full_path.startswith(("api/", "predict", "chat", "news", "models", "storage", "docs", "openapi.json")):
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        index_path = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+
 if __name__ == "__main__":
     import uvicorn
     
+    # Get port from environment (HF Spaces uses PORT env var)
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    
     print("="*60)
     print("Starting Hybrid ESN-Ridge Prediction API")
+    print(f"Host: {host}, Port: {port}")
     print("="*60)
     
     uvicorn.run(
         app, 
-        host="0.0.0.0", 
-        port=8000,
+        host=host, 
+        port=port,
         log_level="info"
     )
 
