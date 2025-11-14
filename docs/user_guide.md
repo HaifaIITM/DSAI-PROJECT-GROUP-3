@@ -28,7 +28,6 @@ The system is suitable for:
 
 # **3. App Layout & Output Description**
 
-Below is a reference to your provided screenshot.
 The interface contains the following sections:
 
 ---
