@@ -130,10 +130,10 @@ class RAGService:
 
         if metadata:
             horizon_info = metadata.get("model_info", {})
-            lines.append("\nModel horizons and Sharpe ratios:")
+            lines.append("\nModel configuration:")
             for horizon, info in horizon_info.items():
-                sharpe = info.get("sharpe")
-                lines.append(f"- {horizon.upper()}: Sharpe {sharpe}")
+                fold = info.get("fold", "N/A")
+                lines.append(f"- {horizon.upper()}: Fold {fold}")
 
         return RAGDocument(title="Predictions", content="\n".join(lines))
 
@@ -193,15 +193,40 @@ class RAGService:
     # ------------------------------------------------------------------
     def _generate_answer(self, question: str, context: str) -> str:
         system_prompt = (
-            "You are a financial analysis assistant helping explain SPY predictions. "
-            "Use the provided context to justify signals and reference specific data. "
-            "If information is missing, state it clearly."
+            "You are an expert financial analyst specializing in SPY (S&P 500 ETF) predictions. "
+            "Your role is to explain model predictions clearly, referencing specific data from the context. "
+            "\n\n"
+            "**Response Format Guidelines:**\n"
+            "1. Start with a brief summary (1-2 sentences) answering the question directly\n"
+            "2. Use markdown formatting: headers (###), tables, bullet points, bold/italic\n"
+            "3. Structure with clear sections using ### headers\n"
+            "4. Include tables for comparisons (use markdown table syntax)\n"
+            "5. Reference specific numbers, dates, and signals from the context\n"
+            "6. End with actionable insights or recommendations when appropriate\n"
+            "\n"
+            "**Content Requirements:**\n"
+            "- Always cite specific prediction values (e.g., 'h20 prediction: +0.004662')\n"
+            "- Reference actual dates and headlines when explaining sentiment\n"
+            "- Explain signal classifications (BUY/SELL) with supporting data\n"
+            "- Compare different horizons (h1, h5, h20) when relevant\n"
+            "- If data is missing, explicitly state what information is unavailable\n"
+            "\n"
+            "**Tone:** Professional, clear, and data-driven. Avoid speculation beyond the provided context."
         )
 
         user_prompt = (
-            f"Context:\n{context}\n\n"
-            f"User question: {question}\n\n"
-            "Provide a concise, well-structured explanation with actionable insights."
+            f"**Context Data:**\n{context}\n\n"
+            f"**User Question:** {question}\n\n"
+            "**Instructions:**\n"
+            "Provide a comprehensive, well-structured explanation using markdown formatting. "
+            "Include:\n"
+            "- A direct answer to the question in the first paragraph\n"
+            "- Structured sections with ### headers\n"
+            "- Tables for comparing predictions, signals, or features\n"
+            "- Specific references to dates, values, and headlines from the context\n"
+            "- Clear interpretation of what the data means\n"
+            "- Actionable insights or recommendations if applicable\n\n"
+            "Format your response as professional markdown that will be rendered in a chat interface."
         )
 
         payload = {
@@ -256,7 +281,7 @@ class RAGService:
 
         parts: List[str] = []
         for doc in documents:
-            parts.append(f"{doc.title}:\n{doc.content}")
+            parts.append(f"=== {doc.title} ===\n{doc.content}")
         return "\n\n".join(parts)
 
     def _load_latest_prediction_batch(self) -> Optional[Dict[str, Any]]:
