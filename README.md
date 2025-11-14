@@ -21,7 +21,7 @@ In **Milestone 5**, we developed a **Hybrid ESN-Ridge** architecture that combin
 - **Ridge** for magnitude calibration (regularized)
 - **Final prediction** = sign(ESN) × |Ridge|
 
-This achieves **best-in-class performance**: Sharpe 6.81, Dir Accuracy 68.7%, RMSE 0.028.
+This achieves **best-in-class performance**: Dir Accuracy 68.7%, RMSE 0.028.
 
 We benchmark against LSTM, Transformer encoder, and Temporal ConvNet (TCN) under a leakage-safe walk-forward protocol.
 
@@ -37,7 +37,6 @@ We benchmark against LSTM, Transformer encoder, and Temporal ConvNet (TCN) under
 
 **Hybrid ESN-Ridge Model**:
 - Combines ESN directional strength with Ridge magnitude calibration
-- Achieves **Sharpe 6.81** (best across all models)
 - **Dir Accuracy 68.7%** (maintains ESN's directional edge)
 - **R² -0.372** (39× better than pure ESN)
 - Production-ready implementation with save/load functionality
@@ -70,6 +69,17 @@ DSAI-PROJECT-GROUP-3/
 ├── production_predictor.py       # Production inference API (M5)
 ├── README.md                     # This file
 ├── requirements.txt              # Python dependencies
+│
+├── application/                  # Full-stack production app (M5)
+│  ├── README.md                  # Application overview
+│  ├── API_GUIDE.md               # Backend usage guide
+│  ├── backend/
+│  │  ├── main.py                 # FastAPI service (predict + news)
+│  │  ├── requirements.txt        # Backend dependencies
+│  │  └── example_usage.py        # API consumer examples
+│  └── frontend/
+│     ├── index.html              # Prediction dashboard
+│     └── README.md               # Frontend usage & deployment
 │
 ├── config/
 │  ├── settings.py                # Tickers, dates, dirs, split sizes, features/targets
@@ -118,7 +128,7 @@ DSAI-PROJECT-GROUP-3/
 │  └── experiments/               # <model>/<exp_id>/fold_k/{preds,metrics}
 │     └── hybrid/                 # Hybrid model checkpoints (M5)
 │        ├── fold_0/
-│        ├── fold_3/              # Best model (Sharpe 6.81) ⭐
+│        ├── fold_3/              
 │        └── fold_8/
 │
 └── docs/                         # Documentation
@@ -262,29 +272,29 @@ All models expose uniform API: `.fit(X, y)` / `.predict(X)` and are registered i
 
 ### Best Models by Horizon (Fold 3)
 
-| Horizon | Model | Sharpe | Dir Acc | RMSE | Purpose |
+| Horizon | Model  | Dir Acc | RMSE | Purpose |
 |---------|-------|--------|---------|------|---------|
-| **h1** | **Hybrid** | **1.25** | 65.2% | 0.010 | Day trading |
-| **h5** | **Hybrid** | **2.94** | 66.5% | 0.019 | Swing trading |
-| **h20** | **Hybrid** | **6.81** | **68.7%** | **0.028** | Position trading ⭐ |
+| **h1** | **Hybrid** | 65.2% | 0.010 | Day trading |
+| **h5** | **Hybrid**  | 66.5% | 0.019 | Swing trading |
+| **h20** | **Hybrid** | **68.7%** | **0.028** | Position trading ⭐ |
 
 ### Fold 0 Comparison (target_h20)
 
-| Model | RMSE | MAE | R² | Dir Acc | Sharpe | Turnover |
-|-------|------|-----|-----|---------|--------|----------|
-| **Hybrid** | **0.029** | 0.023 | -0.509 | **60.7%** | **3.045** | **0.091** |
-| TCN | 0.028 | 0.022 | -0.437 | 58.7% | 5.498 | 0.504 |
-| LSTM | 0.030 | 0.023 | -0.557 | 50.4% | -0.199 | 0.226 |
-| ESN | 0.042 | 0.033 | -2.070 | 42.5% | -2.085 | 0.536 |
-| Ridge | 0.032 | 0.024 | -0.767 | 38.1% | -5.034 | 0.377 |
+| Model | RMSE | MAE | R² | Dir Acc | Turnover |
+|-------|------|-----|-----|---------|----------|
+| **Hybrid** | **0.029** | 0.023 | -0.509 | **60.7%** | **0.091** |
+| TCN | 0.028 | 0.022 | -0.437 | 58.7% | 0.504 |
+| LSTM | 0.030 | 0.023 | -0.557 | 50.4% | 0.226 |
+| ESN | 0.042 | 0.033 | -2.070 | 42.5% | 0.536 |
+| Ridge | 0.032 | 0.024 | -0.767 | 38.1% | 0.377 |
 
 ### Aggregate Performance (9 folds averaged)
 
-| Horizon | Avg Sharpe | Avg Dir Acc | Best Model |
-|---------|-----------|-------------|------------|
-| h1 | 0.17 | 49.7% | Hybrid (fold 3) |
-| h5 | 0.50 | 52.0% | Hybrid (fold 8) |
-| h20 | 1.28 | 54.7% | Hybrid (fold 3) ⭐ |
+| Horizon | Avg Dir Acc | Best Model |
+|---------|-------------|------------|
+| h1 | 49.7% | Hybrid (fold 3) |
+| h5 | 52.0% | Hybrid (fold 8) |
+| h20 | 54.7% | Hybrid (fold 3) ⭐ |
 
 ---
 
@@ -295,26 +305,25 @@ All models expose uniform API: `.fit(X, y)` / `.predict(X)` and are registered i
 **Directional + Magnitude Separation**:
 - ESN excels at directional prediction (sign of return)
 - Ridge excels at magnitude calibration
-- Combining them achieves both high Sharpe AND low RMSE
+- Combining them achieves both high directional accuracy AND low RMSE
 
 **Performance Gains**:
-- **Sharpe**: 6.81 (vs -2.08 for pure ESN, 124% better than TCN)
 - **Dir Accuracy**: 68.7% (maintains ESN's directional strength)
 - **R²**: -0.372 (39× better magnitude prediction than pure ESN)
 
 ### 2. Longer Horizons Easier to Predict
 
-**Sharpe increases with horizon**:
-- h1 (1-day): 0.17 average (noisy, high frequency)
-- h5 (5-day): 0.50 average (moderate)
-- h20 (20-day): 1.28 average (smoother, trend-following) ⭐
+**Performance improves with horizon**:
+- h1 (1-day): Noisy, high frequency
+- h5 (5-day): Moderate predictability
+- h20 (20-day): Smoother, trend-following ⭐
 
 **Interpretation**: Daily returns are near-random walk; multi-day trends are more predictable.
 
 ### 3. Market Regime Matters
 
 **Cross-fold variance**:
-- Fold 3 (includes 2015-2019 bull): Sharpe 6.81
+- Fold 3 (includes 2015-2019 bull): Strong performance
 - Fold 1 (includes 2017 volatility): Sharpe -1.40
 - Fold 6-8 (2020+ COVID era): Mixed results
 
@@ -324,21 +333,19 @@ All models expose uniform API: `.fit(X, y)` / `.predict(X)` and are registered i
 
 **Tested 4 strategies** (see `scripts/evaluation/predict_all_models.py`):
 
-| Strategy | Sharpe | When to Use |
-|----------|--------|-------------|
-| **Single Best** | 3.045 | Maximum performance |
-| Ensemble All | 1.027 | Robustness over performance |
-| Ensemble Horizon | 0.476 | Conservative |
-| Weighted | -4.980 | ❌ Avoid |
+| Strategy | When to Use |
+|----------|-------------|
+| **Single Best** | Maximum performance |
+| Ensemble All | Robustness over performance |
+| Ensemble Horizon | Conservative |
+| Weighted | ❌ Avoid |
 
 **Recommendation**: Use single best model (fold_3, h20) for production.
 
 ### 5. Feature Importance
 
 **Headline embeddings** (28 features) improve performance:
-- Without headlines: Sharpe 4.5
-- With headlines: Sharpe 6.81
-- **+51% improvement** from sentiment/event signals
+- Significant improvement from sentiment/event signals
 
 **Technical indicators** (10 features) provide baseline:
 - Momentum (ret_1, ret_5): Most predictive

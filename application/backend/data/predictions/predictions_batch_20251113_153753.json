@@ -1,0 +1,63 @@
+{
+  "timestamp": "20251113_153753",
+  "generated_at": "2025-11-13T15:37:53.858974",
+  "predictions": [
+    {
+      "date": "2025-11-10",
+      "h1_prediction": 0.00027520317548373324,
+      "h1_signal": "BUY",
+      "h5_prediction": -0.00029861835188286405,
+      "h5_signal": "SELL",
+      "h20_prediction": 0.0015915248396915788,
+      "h20_signal": "BUY",
+      "actual_close": 681.4400024414062
+    },
+    {
+      "date": "2025-11-11",
+      "h1_prediction": 0.0007576921842780854,
+      "h1_signal": "BUY",
+      "h5_prediction": -0.00013465370604486774,
+      "h5_signal": "SELL",
+      "h20_prediction": 0.004053746095960656,
+      "h20_signal": "BUY",
+      "actual_close": 683.0
+    },
+    {
+      "date": "2025-11-12",
+      "h1_prediction": 0.0006278754043871929,
+      "h1_signal": "BUY",
+      "h5_prediction": -0.00024706934441944125,
+      "h5_signal": "SELL",
+      "h20_prediction": 0.004662126180959514,
+      "h20_signal": "BUY",
+      "actual_close": 683.3800048828125
+    }
+  ],
+  "metadata": {
+    "symbol": "SPY",
+    "model_info": {
+      "h1": {
+        "fold": 3,
+        "sharpe": 1.25,
+        "path": "C:\\Users\\MYPC\\DSAI-PROJECT-GROUP-3\\data\\experiments\\hybrid\\fold_3\\model_target_h1"
+      },
+      "h5": {
+        "fold": 8,
+        "sharpe": 2.94,
+        "path": "C:\\Users\\MYPC\\DSAI-PROJECT-GROUP-3\\data\\experiments\\hybrid\\fold_8\\model_target_h5"
+      },
+      "h20": {
+        "fold": 3,
+        "sharpe": 6.813,
+        "path": "C:\\Users\\MYPC\\DSAI-PROJECT-GROUP-3\\data\\experiments\\hybrid\\fold_3\\model_target_h20"
+      }
+    },
+    "n_samples": 207,
+    "prediction_days": 3,
+    "date_range": {
+      "start": "2025-11-10 00:00:00-05:00",
+      "end": "2025-11-12 00:00:00-05:00"
+    },
+    "prediction_type": "fresh_3_days"
+  }
+}
