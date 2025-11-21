@@ -49,8 +49,8 @@ data/experiments/**/*
 *.joblib
 
 # Large data files
-*.csv
-!spy_news.csv  # Keep headlines data (needed for reproduction)
+# *.csv
+# !spy_news.csv  # Keep headlines data (needed for reproduction)
 
 # OS-specific
 .DS_Store
