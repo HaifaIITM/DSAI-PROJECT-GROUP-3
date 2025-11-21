@@ -312,7 +312,7 @@ curl -s http://localhost:8000/predict | \
 curl -s -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"question":"Why is the h20 horizon bullish today?", "top_k":3}'
-# Uses Ollama model `gpt-oss:120b-cloud` by default (override via OLLAMA_MODEL env var)
+# Uses OpenAI API with `gpt-4o-mini` by default (requires OPENAI_API_KEY env var)
 # Example response snippet:
 # {
 #   "answer": "...",

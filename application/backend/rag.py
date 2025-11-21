@@ -2,8 +2,7 @@
 Retrieval-Augmented Generation (RAG) service for explaining predictions.
 
 This module builds lightweight context from stored predictions, features,
-and headlines, then queries an Ollama-hosted Finance-Llama model to
-generate natural language answers.
+and headlines, then queries OpenAI API to generate natural language answers.
 """
 from __future__ import annotations
 
@@ -14,11 +13,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-import requests
+from openai import OpenAI
 
 from storage import DataStorage
 
-DEFAULT_OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gpt-oss:120b-cloud")
+DEFAULT_OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 
 @dataclass
@@ -36,20 +35,25 @@ class RAGDocument:
 class RAGService:
     """
     Retrieval-Augmented Generation service that surfaces context from stored
-    prediction artifacts and uses an Ollama model for explainability.
+    prediction artifacts and uses OpenAI API for explainability.
     """
 
     def __init__(
         self,
         storage: DataStorage,
-        ollama_url: Optional[str] = None,
-        model: str = DEFAULT_OLLAMA_MODEL,
+        api_key: Optional[str] = None,
+        model: str = DEFAULT_OPENAI_MODEL,
         timeout: int = 60,
     ) -> None:
         self.storage = storage
-        base_url = ollama_url or os.environ.get("OLLAMA_URL", "http://localhost:11434")
-        self.ollama_chat_url = f"{base_url.rstrip('/')}/api/chat"
-        self.model = model or DEFAULT_OLLAMA_MODEL
+        api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY environment variable is required. "
+                "Set it in your environment or pass it to RAGService."
+            )
+        self.client = OpenAI(api_key=api_key, timeout=timeout)
+        self.model = model or DEFAULT_OPENAI_MODEL
         self.timeout = timeout
 
     # ------------------------------------------------------------------
@@ -189,7 +193,7 @@ class RAGService:
         return RAGDocument(title="Metadata", content="\n".join(lines))
 
     # ------------------------------------------------------------------
-    # Ollama interaction
+    # OpenAI API interaction
     # ------------------------------------------------------------------
     def _generate_answer(self, question: str, context: str) -> str:
         system_prompt = (
@@ -229,34 +233,22 @@ class RAGService:
             "Format your response as professional markdown that will be rendered in a chat interface."
         )
 
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "stream": False,
-        }
-
         try:
-            response = requests.post(
-                self.ollama_chat_url,
-                json=payload,
-                timeout=self.timeout,
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.7,
+                max_tokens=1500,
             )
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Ollama request failed: {exc}") from exc
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Invalid response from Ollama: {exc}") from exc
-
-        message = data.get("message", {})
-        answer = message.get("content", "").strip()
-        if not answer:
-            answer = data.get("response", "").strip()
-
-        return answer or "No answer generated. Please try again later."
+            
+            answer = response.choices[0].message.content.strip()
+            return answer or "No answer generated. Please try again later."
+            
+        except Exception as exc:
+            raise RuntimeError(f"OpenAI API request failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Helpers

@@ -12,7 +12,18 @@ import {
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+// Auto-detect API URL for HF Spaces
+const getApiBaseUrl = () => {
+  // Check if we're in production (HF Spaces)
+  if (import.meta.env.PROD) {
+    // In production, use same origin (HF Spaces serves both frontend and backend)
+    return window.location.origin;
+  }
+  // Development: use env var or default
+  return import.meta.env.VITE_API_BASE_URL || "http://localhost:7860";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const horizonLabels = {
   h1: "1-Day",

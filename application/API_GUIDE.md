@@ -186,7 +186,7 @@ curl http://localhost:8000/news?days_back=90
 
 ### 5. POST /chat
 
-Explain predictions using Retrieval-Augmented Generation (RAG) with the `gpt-oss:120b-cloud` model served via Ollama.
+Explain predictions using Retrieval-Augmented Generation (RAG) with OpenAI API (default model: `gpt-4o-mini`).
 
 **Request Body:**
 ```json
@@ -208,7 +208,8 @@ curl -X POST http://localhost:8000/chat \
 {
   "question": "...",
   "answer": "...",
-  "model": "gpt-oss:120b-cloud",
+  "model": "gpt-4o-mini",
+  "provider": "openai",
   "context": [
     {
       "title": "Predictions",
@@ -224,7 +225,7 @@ curl -X POST http://localhost:8000/chat \
 }
 ```
 
-The backend automatically assembles context from stored predictions, engineered features, and recent headlines, then queries the Ollama model. Override the endpoint by setting `OLLAMA_URL` if Ollama is not running at `http://localhost:11434`, and `OLLAMA_MODEL` to use a different Ollama model.
+The backend automatically assembles context from stored predictions, engineered features, and recent headlines, then queries the OpenAI API. Set `OPENAI_API_KEY` environment variable with your OpenAI API key, and `OPENAI_MODEL` to use a different model (default: `gpt-4o-mini`).
 
 ### 6. GET /storage/info
 
