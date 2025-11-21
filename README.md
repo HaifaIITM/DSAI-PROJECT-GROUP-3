@@ -1,3 +1,14 @@
+---
+title: Hybrid ESN-Ridge Predictor
+emoji: 📈
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+sdk_version: "1.0.0"
+app_file: app.py
+pinned: false
+---
+
 # State-Space Echo State Networks for Multi-Horizon Financial Forecasting
 
 **Course**: DS & AI Lab  
