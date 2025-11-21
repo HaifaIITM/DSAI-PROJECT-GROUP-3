@@ -6,6 +6,7 @@ Endpoints:
 """
 import sys
 import os
+import importlib
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -16,6 +17,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+try:
+    load_dotenv = importlib.import_module("dotenv").load_dotenv
+except ModuleNotFoundError:  # Fallback if python-dotenv isn't installed
+    def load_dotenv(*_args, **_kwargs):
+        return False
+
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
@@ -23,6 +30,9 @@ sys.path.insert(0, project_root)
 # Add backend directory to path for local imports
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, backend_dir)
+
+# Load environment variables from project root .env if present
+load_dotenv(os.path.join(project_root, ".env"))
 
 from production_predictor import ProductionPredictor
 from util import (
@@ -48,8 +58,10 @@ allowed_origins = [
     "https://*.hf.space",
     "http://localhost:7860",
     "http://localhost:8000",
+    "http://localhost:5173",
     "http://127.0.0.1:7860",
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:5173",
 ]
 # In production, also allow all (HF Spaces dynamic URLs)
 if os.environ.get("HF_SPACE_ID"):
