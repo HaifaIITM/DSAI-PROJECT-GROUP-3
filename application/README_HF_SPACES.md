@@ -5,7 +5,7 @@ This application is deployed on Hugging Face Spaces using Docker.
 ## 🚀 Quick Start
 
 1. **Create a new Space** on Hugging Face with Docker SDK
-2. **Upload files** from the `application/` directory
+2. **Push the repository root** so the Space sees the top-level `Dockerfile`, `.dockerignore`, `application/`, `config/`, `src/`, and `data/experiments/`
 3. **Set environment variables** in Space settings:
    - `OLLAMA_URL` (optional): Ollama API URL for RAG
    - `OLLAMA_MODEL` (optional): Model name (default: `gpt-oss:120b-cloud`)
@@ -16,21 +16,23 @@ This application is deployed on Hugging Face Spaces using Docker.
 The following files must be in the Space root:
 
 ```
-application/
+.
 ├── Dockerfile
 ├── .dockerignore
-├── README.md (this file)
-├── backend/
-│   ├── main.py
-│   ├── rag.py
-│   ├── storage.py
-│   ├── util.py
-│   ├── requirements.txt
-│   └── data/ (created at runtime)
-├── frontend/
-│   └── dashboard/
-│       ├── package.json
-│       └── src/
+├── application/
+│   ├── README.md (this file)
+│   ├── app.py
+│   ├── backend/
+│   │   ├── main.py
+│   │   ├── rag.py
+│   │   ├── storage.py
+│   │   ├── util.py
+│   │   ├── requirements.txt
+│   │   └── data/ (created at runtime)
+│   └── frontend/
+│       └── dashboard/
+│           ├── package.json
+│           └── src/
 ├── config/
 ├── src/
 ├── production_predictor.py
