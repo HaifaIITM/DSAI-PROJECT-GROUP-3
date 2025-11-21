@@ -74,6 +74,7 @@ build/
 
 # Documentation builds
 docs/_build/
+docs/*.pdf
 
 # Temporary files
 *.tmp
