@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LineChart,
   Line,
@@ -47,6 +47,12 @@ const renderMarkdown = (text) => {
   const raw = marked.parse(text);
   return DOMPurify.sanitize(raw);
 };
+
+const quickPrompts = [
+  "Summarize today’s cross-horizon signals with supporting news.",
+  "What is driving the latest SELL signal on h5?",
+  "List the strongest bullish headlines in the last 48 hours.",
+];
 
 export default function RiskDashboard() {
   // ---------------------- PREDICTIONS / NEWS ----------------------
@@ -137,11 +143,37 @@ export default function RiskDashboard() {
   const [input, setInput] = useState("");
   const [chatError, setChatError] = useState(null);
   const [isSending, setIsSending] = useState(false);
+  const [chatMetrics, setChatMetrics] = useState({
+    total: 0,
+    success: 0,
+    errors: 0,
+    avgLatency: 0,
+    contextHits: 0,
+  });
+  const chatContainerRef = useRef(null);
 
-  async function sendMessage() {
-    if (!input.trim()) return;
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages, isSending]);
 
-    const userMsg = { sender: "user", text: input };
+  const buildMessage = (overrides) => ({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    ...overrides,
+  });
+
+  async function sendMessage(promptOverride) {
+    if (isSending) return;
+    const messageText = (promptOverride ?? input).trim();
+    if (!messageText) return;
+    const start = performance.now();
+
+    const userMsg = buildMessage({ sender: "user", text: messageText });
     setMessages((prev) => [...prev, userMsg]);
     setChatError(null);
     setIsSending(true);
@@ -150,7 +182,7 @@ export default function RiskDashboard() {
       const res = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: input.trim(), top_k: 3 }),
+        body: JSON.stringify({ question: messageText, top_k: 3 }),
       });
 
       if (!res.ok) {
@@ -165,16 +197,36 @@ export default function RiskDashboard() {
         .join("\n")
         .trim();
 
-      const combinedText = context ? `${summary}\n\nContext:\n${context}` : summary;
-
-      const botMsg = { sender: "bot", text: combinedText };
+      const botMsg = buildMessage({
+        sender: "bot",
+        text: summary,
+        context: data?.context ?? [],
+      });
       setMessages((prev) => [...prev, botMsg]);
+      setChatMetrics((prev) => {
+        const latency = performance.now() - start;
+        const total = prev.total + 1;
+        const success = prev.success + 1;
+        const contextHits = prev.contextHits + (botMsg.context?.length ? 1 : 0);
+        const avgLatency =
+          prev.avgLatency === 0 ? latency : (prev.avgLatency * prev.success + latency) / success;
+        return { ...prev, total, success, contextHits, avgLatency };
+      });
     } catch (err) {
       setChatError(err.message);
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: `Error processing request: ${err.message}` },
+        buildMessage({
+          sender: "bot",
+          text: `Error processing request: ${err.message}`,
+          isError: true,
+        }),
       ]);
+      setChatMetrics((prev) => ({
+        ...prev,
+        total: prev.total + 1,
+        errors: prev.errors + 1,
+      }));
     } finally {
       setInput("");
       setIsSending(false);
@@ -186,6 +238,10 @@ export default function RiskDashboard() {
       event.preventDefault();
       sendMessage();
     }
+  }
+
+  function handlePromptClick(prompt) {
+    sendMessage(prompt);
   }
 
   return (
@@ -381,40 +437,106 @@ export default function RiskDashboard() {
           </div>
 
           {/* ---------------- RAG CHAT PANEL ---------------- */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 md:p-6 shadow-xl shadow-slate-950/40 flex flex-col min-h-0">
+          <div className="bg-white/90 border border-slate-300 rounded-3xl p-4 md:p-6 shadow-xl shadow-slate-950/40 flex flex-col min-h-0">
             <div className="mb-4 flex-none">
-              <h2 className="text-2xl font-semibold tracking-tight">Post your questions here!</h2>
-              <p className="text-sm text-slate-400">
+              <h2 className="text-2xl font-semibold tracking-tight text-black">Post your questions here!</h2>
+              <p className="text-sm text-black/70">
                 Ask about signals, risk posture, or key headlines. Responses come from the RAG layer.
               </p>
             </div>
 
-            <div className="flex-1 bg-slate-950/60 border border-slate-800/70 rounded-2xl p-4 overflow-y-auto space-y-3 min-h-0">
-            {messages.map((m, idx) => {
-              const html = renderMarkdown(m.text);
-              const isUser = m.sender === "user";
-              return (
-                <div
-                  key={idx}
-                  className={`max-w-[85%] p-4 rounded-2xl leading-relaxed tracking-wide shadow-md ${
-                    isUser
-                      ? "bg-blue-600/80 border border-blue-400/40 self-end ml-auto"
-                      : "bg-emerald-600/20 border border-emerald-400/40 self-start"
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: html }}
-                />
-              );
-            })}
-              {!messages.length && (
-                <div className="text-slate-500 text-sm">
-                  Ask the assistant for context—e.g., “Summarize today’s h5 outlook with supporting
-                  news.”
+            {chatMetrics.total > 0 && (
+              <details className="mb-3 flex-none">
+                <summary className="text-xs text-black/60 uppercase tracking-[0.25em] cursor-pointer hover:text-black/80 select-none">
+                  Performance metrics ({chatMetrics.total} requests)
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                  <span className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-black">
+                    Success: {Math.round((chatMetrics.success / chatMetrics.total) * 100)}% ({chatMetrics.success}/{chatMetrics.total})
+                  </span>
+                  <span className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-black">
+                    Latency: {Math.round(chatMetrics.avgLatency)} ms
+                  </span>
+                  <span className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-black">
+                    Context: {Math.round((chatMetrics.contextHits / chatMetrics.success) * 100)}% ({chatMetrics.contextHits}/{chatMetrics.success})
+                  </span>
+                </div>
+              </details>
+            )}
+
+            <div
+              ref={chatContainerRef}
+              className="flex-1 bg-white/60 border border-slate-300/70 rounded-2xl p-4 overflow-y-auto space-y-3 min-h-0"
+            >
+              {messages.map((m) => {
+                const html = renderMarkdown(m.text);
+                const isUser = m.sender === "user";
+                return (
+                  <div
+                    key={m.id}
+                    className={`max-w-[85%] rounded-2xl leading-relaxed tracking-wide shadow-md ${
+                      isUser
+                        ? "bg-blue-100 border border-blue-300 self-end ml-auto"
+                        : "bg-emerald-50 border border-emerald-200 self-start"
+                    }`}
+                  >
+                    <div className="p-4 text-black" dangerouslySetInnerHTML={{ __html: html }} />
+                    {!isUser && m.context?.length ? (
+                      <details className="border-t border-emerald-300/50 text-sm text-black/80">
+                        <summary className="px-4 py-2 cursor-pointer text-black/90">
+                          View context sources ({m.context.length})
+                        </summary>
+                        <ul className="px-4 pb-3 space-y-1 text-black/70 list-disc">
+                          {m.context.map((doc, idx) => (
+                            <li key={`${m.id}-ctx-${idx}`}>
+                              <span className="font-semibold">{doc.title}</span>
+                              {doc.score !== undefined && (
+                                <span className="text-black/60 ml-1">
+                                  · relevance {(doc.score * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                    {m.isError && (
+                      <div className="px-4 pb-3 text-xs text-black/80">Try again in a moment.</div>
+                    )}
+                  </div>
+                );
+              })}
+              {isSending && (
+                <div className="max-w-[60%] bg-emerald-50 border border-emerald-200 rounded-2xl shadow-md self-start">
+                  <div className="p-4 text-sm text-black flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
+                    Generating insight...
+                  </div>
+                </div>
+              )}
+              {!messages.length && !isSending && (
+                <div className="text-black/60 text-sm space-y-3">
+                  <p>
+                    Ask the assistant for tailored insight—try one of these quick prompts to get
+                    started:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {quickPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => handlePromptClick(prompt)}
+                        className="px-3 py-1 text-xs bg-white border border-slate-300 rounded-full text-black hover:border-emerald-400 transition"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             {chatError && (
-              <div className="mt-3 text-sm text-red-400 bg-red-500/10 border border-red-400/30 rounded-xl px-3 py-2 flex-none">
+              <div className="mt-3 text-sm text-black bg-red-100 border border-red-300 rounded-xl px-3 py-2 flex-none">
                 Chat error: {chatError}
               </div>
             )}
@@ -425,7 +547,7 @@ export default function RiskDashboard() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={2}
-                className="flex-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                className="flex-1 bg-white/80 border border-slate-300 rounded-2xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-black placeholder:text-black/40"
                 placeholder="Type your query... Press Enter to send"
               />
               <button
@@ -433,8 +555,8 @@ export default function RiskDashboard() {
                 disabled={isSending}
                 className={`h-12 px-6 rounded-2xl font-semibold shadow-lg transition ${
                   isSending
-                    ? "bg-emerald-500/40 text-emerald-100 cursor-not-allowed"
-                    : "bg-emerald-500 hover:bg-emerald-400 text-slate-900"
+                    ? "bg-emerald-500/40 text-black cursor-not-allowed"
+                    : "bg-emerald-500 hover:bg-emerald-400 text-black"
                 }`}
               >
                 {isSending ? "Sending..." : "Send"}

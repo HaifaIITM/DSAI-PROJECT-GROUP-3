@@ -112,7 +112,7 @@ class PredictionResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=3)
+    question: str = Field(..., min_length=1)
     top_k: int = Field(3, ge=1, le=5)
 
 
