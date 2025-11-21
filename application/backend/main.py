@@ -53,26 +53,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware - allow HF Spaces and localhost
-allowed_origins = [
-    "https://*.hf.space",
-    "http://localhost:7860",
-    "http://localhost:8000",
-    "http://localhost:5173",
-    "http://127.0.0.1:7860",
-    "http://127.0.0.1:8000",
-    "http://127.0.0.1:5173",
-]
-# In production, also allow all (HF Spaces dynamic URLs)
-if os.environ.get("HF_SPACE_ID"):
-    allowed_origins.append("*")
-
+# CORS middleware - allow all origins (open)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when using allow_origins=["*"]
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Global predictor (loaded once at startup)

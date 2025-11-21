@@ -1,0 +1,28 @@
+{
+  "name": "dsai-project-group-3",
+  "version": "1.0.0",
+  "description": "--- title: Hybrid ESN-Ridge Predictor emoji: 📈 colorFrom: blue colorTo: indigo sdk: docker sdk_version: \"1.0.0\" app_file: app.py pinned: false ---",
+  "main": "proxy-server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaifaIITM/DSAI-PROJECT-GROUP-3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/HaifaIITM/DSAI-PROJECT-GROUP-3/issues"
+  },
+  "homepage": "https://github.com/HaifaIITM/DSAI-PROJECT-GROUP-3#readme",
+  "dependencies": {
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
+  }
+}
