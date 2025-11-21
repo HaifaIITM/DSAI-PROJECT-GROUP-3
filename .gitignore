@@ -104,3 +104,4 @@ wandb/
 checkpoints/
 saved_models/
 
+/dashboard/node_modules
