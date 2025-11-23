@@ -20,7 +20,7 @@ This application provides:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         Frontend                            │
-│  (HTML/CSS/JavaScript - Simple Dashboard)                   │
+│  (Vite node jd - Simple Dashboard)                   │
 │  • Shows latest predictions (h1, h5, h20)                   │
 │  • 30-day prediction history table                          │
 │  • Recent news (last 3 days)                                │
@@ -55,6 +55,10 @@ This application provides:
 # Python 3.12+
 python --version
 
+#Node version 22+ is recommended for vite
+node -v
+npm -v
+
 # Trained models (if not already trained)
 python scripts/training/train_all_hybrid_models.py
 ```
@@ -73,19 +77,12 @@ python main.py
 ### 2. Open Frontend
 
 ```bash
-cd ../frontend
-
-# Option A: Direct open
-open index.html  # Mac
-start index.html  # Windows
-xdg-open index.html  # Linux
-
-# Option B: Use a server (recommended)
-python -m http.server 3000
-# Then visit: http://localhost:3000
+cd ../frontend/dashboard
+npm install
+npm run dev -- --host
 ```
 
-**Frontend will be available at**: http://localhost:3000
+**Frontend will be available at**: http://localhost:5173
 
 ---
 
@@ -112,8 +109,15 @@ application/
 │   └── start.bat               # Windows startup
 │
 └── frontend/
-    ├── index.html              # Main dashboard
-    └── README.md               # Frontend documentation
+    └── dashboard/             # Main dashboard
+        |── public/
+        |── src/
+        |   |── RiskDashboard.jsx   #Dashboard Component
+        |   └── App.jsx             #App Component
+        |── index.html
+        |── postcss.config.js
+        └── tailwind.config.js
+
 ```
 
 ---
